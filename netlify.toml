@@ -1,0 +1,27 @@
+[build]
+  functions = "netlify/functions"
+
+[build.environment]
+  # FB_URL is intentionally public: the browser pages (index.html, admin.html,
+  # marketing-common.js) read Realtime DB directly via REST. It's the same URL
+  # any client can see in DevTools, not a secret.
+  SECRETS_SCAN_OMIT_KEYS = "FB_URL"
+
+[[headers]]
+  for = "/.netlify/functions/*"
+  [headers.values]
+    Access-Control-Allow-Origin = "*"
+    Access-Control-Allow-Methods = "POST, GET, OPTIONS"
+    Access-Control-Allow-Headers = "Content-Type, x-admin-token"
+
+# Daily snapshot of all live data into backups/<date> (04:00 IL time)
+[functions."daily-backup"]
+  schedule = "0 1 * * *"
+
+# Weekly aggregate report into reports/<iso-week> (Sunday 09:00 IL time)
+[functions."weekly-report"]
+  schedule = "0 6 * * 0"
+
+# Notify customers whose coupons expire in <= 2 days (daily 10:00 IL time)
+[functions."notify-expiring-coupons"]
+  schedule = "0 7 * * *"

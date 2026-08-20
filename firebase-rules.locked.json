@@ -1,0 +1,49 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+
+    "orders": {
+      ".read": true,
+      ".indexOn": ["ts"],
+      "$orderId": {
+        ".write": "auth.token.admin === true",
+        ".validate": "newData.hasChildren(['name','phone','total','ts']) && newData.child('total').isNumber() && newData.child('total').val() >= 0 && newData.child('ts').isNumber()"
+      }
+    },
+
+    "history":               { ".read": true, ".write": "auth.token.admin === true" },
+
+    "coupons": {
+      ".read": true,
+      ".write": "auth.token.admin === true",
+      "$code": { ".validate": "!newData.hasChild('value') || newData.child('value').isNumber()" }
+    },
+
+    "menu":                  { ".read": true, ".write": "auth.token.admin === true" },
+    "siteSettings":          { ".read": true, ".write": "auth.token.admin === true" },
+    "admin_state":           { ".read": true, ".write": "auth.token.admin === true" },
+    "promotions":            { ".read": true, ".write": "auth.token.admin === true" },
+    "marketingConfig":       { ".read": true, ".write": "auth.token.admin === true" },
+    "dailyQuiz":             { ".read": true, ".write": "auth.token.admin === true" },
+    "quizAttempts":          { ".read": true, ".write": "auth.token.admin === true" },
+    "referrals":             { ".read": true, ".write": "auth.token.admin === true" },
+    "groupOrders":           { ".read": true, ".write": "auth.token.admin === true" },
+    "loyalty":               { ".read": true, ".write": "auth.token.admin === true" },
+    "itemStats":             { ".read": true, ".write": "auth.token.admin === true" },
+    "reports":               { ".read": true, ".write": "auth.token.admin === true" },
+    "marketingPosts":        { ".read": true, ".write": "auth.token.admin === true" },
+    "marketingAssets":       { ".read": true, ".write": "auth.token.admin === true" },
+    "localResearch":         { ".read": true, ".write": "auth.token.admin === true" },
+    "consultations":         { ".read": true, ".write": "auth.token.admin === true" },
+    "consultationSummaries": { ".read": true, ".write": "auth.token.admin === true" },
+
+    "ugcSubmissions": {
+      ".read": true,
+      ".write": "auth.token.admin === true",
+      "$id": {
+        ".validate": "newData.hasChildren(['imageData','customerName','status','submittedAt']) && newData.child('imageData').isString() && newData.child('imageData').val().length < 1300000"
+      }
+    }
+  }
+}

@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>חידון יומי · הדיינר</title>
+  <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="marketing.css">
+  <style>
+    .q-card { border: 1px solid var(--border); border-radius: 10px; padding: 0.8rem; margin-bottom: 0.7rem; }
+    .q-correct { color: var(--ok); font-weight: 700; }
+    .q-row-actions { display: flex; gap: 0.4rem; margin-top: 0.4rem; }
+    .opt-input { display: flex; gap: 0.3rem; align-items: center; margin: 0.25rem 0; }
+    .opt-input input[type=text] { flex: 1; }
+    .opt-input input[type=radio] { width: auto; }
+  </style>
+</head>
+<body>
+<div id="nav"></div>
+<div class="mkt-wrap">
+  <h1>🧠 חידון יומי</h1>
+
+  <div class="card">
+    <h2 id="form-title">הוסף שאלה חדשה</h2>
+    <label for="q-text">שאלה</label>
+    <input id="q-text" placeholder="שאלת טריוויה על העיר/העסק שלכם...">
+    <label>תשובות (סמן את הנכונה)</label>
+    <div id="opts"></div>
+    <label for="q-fact">עובדה מעניינת (תוצג אחרי תשובה)</label>
+    <input id="q-fact" placeholder="עובדה מעניינת שקשורה לתשובה...">
+    <div class="btn-row">
+      <button class="btn" id="save-q">💾 שמור</button>
+      <button class="btn ghost" id="reset-q">נקה</button>
+    </div>
+  </div>
+
+  <div class="card" style="background:var(--surface-2)">
+    <h2>שאלות במאגר (<span id="count">0</span>)</h2>
+    <div class="btn-row">
+      <button class="btn ghost sm" id="seed-btn">📥 טען 2 שאלות דוגמה (ערכו לפני שימוש אמיתי)</button>
+    </div>
+    <div id="list"></div>
+  </div>
+</div>
+
+<script src="/site.config.js"></script>
+<script src="marketing-common.js"></script>
+<script>
+renderNav("quiz-management.html");
+let questions = [];
+let editing = null;
+
+// Just 2 generic placeholder questions — trivia is inherently specific to your city/
+// business, so there's no meaningful "generic 12 questions" set to ship. Click the
+// seed button once to see the data shape and DB write path work, then replace these
+// with 8-12 real questions about your city/business using the form above.
+const SEED = [
+  ["שאלת דוגמה - ערכו אותי!", ["תשובה נכונה", "תשובה שגויה 1", "תשובה שגויה 2", "תשובה שגויה 3"], 0, "זו עובדה לדוגמה. כתבו 8-12 שאלות טריוויה על העיר/העסק שלכם והחליפו את המערך הזה."],
+  ["שאלת דוגמה שנייה - ערכו אותי!", ["תשובה שגויה 1", "תשובה שגויה 2", "תשובה נכונה", "תשובה שגויה 3"], 2, "עובדה לדוגמה נוספת, עם התשובה הנכונה במקום שלישי הפעם — כדי להראות שהמיקום לא קבוע."]
+];
+
+async function init() {
+  await load();
+  document.getElementById("save-q").addEventListener("click", save);
+  document.getElementById("reset-q").addEventListener("click", reset);
+  document.getElementById("seed-btn").addEventListener("click", seed);
+  renderOpts(["", "", "", ""], 0);
+}
+
+async function load() {
+  const data = (await fbGet("dailyQuiz")) || {};
+  questions = Array.isArray(data.questions) ? data.questions : [];
+  document.getElementById("count").textContent = questions.length;
+  renderList();
+}
+
+function renderOpts(values, correctIdx) {
+  const host = document.getElementById("opts");
+  host.innerHTML = "";
+  for (let i = 0; i < 4; i++) {
+    const div = document.createElement("div"); div.className = "opt-input";
+    div.innerHTML = '<input type="radio" name="correct" value="' + i + '"' + (i === correctIdx ? " checked" : "") + '>' +
+                    '<input type="text" data-i="' + i + '" placeholder="תשובה ' + (i + 1) + '" value="' + escapeHtml(values[i] || "") + '">';
+    host.appendChild(div);
+  }
+}
+
+function reset() {
+  editing = null;
+  document.getElementById("form-title").textContent = "הוסף שאלה חדשה";
+  document.getElementById("q-text").value = "";
+  document.getElementById("q-fact").value = "";
+  renderOpts(["", "", "", ""], 0);
+}
+
+async function save() {
+  const text = document.getElementById("q-text").value.trim();
+  const opts = [...document.querySelectorAll("#opts input[type=text]")].map(el => el.value.trim());
+  const correct = parseInt((document.querySelector("#opts input[type=radio]:checked") || {}).value || "0", 10);
+  const fact = document.getElementById("q-fact").value.trim();
+  if (!text || opts.some(o => !o)) { toast("מלא שאלה ו-4 תשובות"); return; }
+  const q = { id: editing || ("q" + Date.now().toString(36)), question: text, options: opts, correctIndex: correct, funFact: fact };
+  if (editing) questions = questions.map(x => x.id === editing ? q : x);
+  else questions.push(q);
+  try {
+    await fbSet("dailyQuiz/questions", questions);
+    toast("נשמר ✔"); reset(); await load();
+  } catch (e) { toast(e.message); }
+}
+
+function edit(id) {
+  const q = questions.find(x => x.id === id); if (!q) return;
+  editing = id;
+  document.getElementById("form-title").textContent = "עריכת שאלה";
+  document.getElementById("q-text").value = q.question;
+  document.getElementById("q-fact").value = q.funFact || "";
+  renderOpts(q.options, q.correctIndex);
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+async function del(id) {
+  if (!confirm("למחוק את השאלה?")) return;
+  questions = questions.filter(x => x.id !== id);
+  await fbSet("dailyQuiz/questions", questions);
+  await load();
+}
+
+function renderList() {
+  const host = document.getElementById("list");
+  if (!questions.length) { host.innerHTML = '<div class="muted small">אין שאלות. לחץ "טען התחלתיות" או הוסף ידנית.</div>'; return; }
+  host.innerHTML = "";
+  questions.forEach(q => {
+    const d = document.createElement("div"); d.className = "q-card";
+    d.innerHTML = '<strong>' + escapeHtml(q.question) + '</strong>' +
+      '<ul style="margin:0.4rem 0;padding-inline-start:1.2rem;">' +
+      q.options.map((o, i) => '<li' + (i === q.correctIndex ? ' class="q-correct"' : '') + '>' + escapeHtml(o) + (i === q.correctIndex ? " ✓" : "") + '</li>').join("") +
+      '</ul>' +
+      (q.funFact ? '<div class="small muted">' + escapeHtml(q.funFact) + '</div>' : '');
+    const actions = document.createElement("div"); actions.className = "q-row-actions";
+    const eBtn = document.createElement("button"); eBtn.className = "btn ghost sm"; eBtn.textContent = "✏️ ערוך"; eBtn.onclick = () => edit(q.id);
+    const dBtn = document.createElement("button"); dBtn.className = "btn ghost sm danger"; dBtn.textContent = "🗑 מחק"; dBtn.onclick = () => del(q.id);
+    actions.appendChild(eBtn); actions.appendChild(dBtn); d.appendChild(actions);
+    host.appendChild(d);
+  });
+}
+
+async function seed() {
+  if (questions.length && !confirm("יש כבר " + questions.length + " שאלות. להוסיף את ה-12 ההתחלתיות בסוף?")) return;
+  const seeds = SEED.map((s, i) => ({ id: "seed" + (Date.now() + i).toString(36), question: s[0], options: s[1], correctIndex: s[2], funFact: s[3] }));
+  questions = questions.concat(seeds);
+  await fbSet("dailyQuiz/questions", questions);
+  toast("נטענו " + seeds.length + " שאלות"); await load();
+}
+
+requireAuth(init);
+</script>
+</body>
+</html>

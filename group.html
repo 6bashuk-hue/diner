@@ -1,0 +1,598 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>הזמנה קבוצתית · הדיינר</title>
+  <script src="site.config.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;600;700;800&family=Secular+One&display=swap" rel="stylesheet">
+  <style>
+    :root { --primary:#d21f24; --primary-dark:#a31419; --teal:#28a3aa; --bg:#f7f1e7; --success:#28a745; --gray:#666; --border:#e3d8c3; --danger:#c62828; }
+    * { box-sizing: border-box; }
+    body { font-family: 'Rubik', sans-serif; background: var(--bg); margin: 0; padding: 1rem; color: #2a2a2a; }
+    .wrap { max-width: 720px; margin: 0 auto; }
+    h1, h2, h3 { color: var(--primary); margin: 0.4rem 0; }
+    h1 a { color: inherit; text-decoration: none; }
+    .card { background: white; border: 1.5px solid var(--border); border-radius: 12px; padding: 1rem 1.2rem; margin-bottom: 1rem; }
+    label { font-weight: 700; display: block; margin: 0.6rem 0 0.3rem; }
+    input, select, textarea { width: 100%; padding: 0.6rem 0.8rem; border: 1.5px solid #ccc; border-radius: 6px; font-family: inherit; font-size: 0.95rem; }
+    textarea { resize: vertical; min-height: 50px; }
+    .btn { background: var(--primary); color: white; border: none; padding: 0.85rem 1.2rem; border-radius: 8px; font-size: 1rem; font-weight: 700; cursor: pointer; font-family: inherit; }
+    .btn.ghost { background: white; color: var(--primary); border: 1.5px solid var(--primary); }
+    .btn.green { background: var(--success); }
+    .btn:disabled { opacity: 0.6; cursor: default; }
+    .row { display: flex; gap: 0.6rem; align-items: center; flex-wrap: wrap; }
+    .section-title { color: var(--primary); font-weight: 800; font-size: 1.1rem; border-bottom: 2px solid var(--primary); padding-bottom: 0.25rem; margin: 1rem 0 0.6rem; }
+    .menu-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; }
+    .menu-item { background: #fdf8f0; border: 1px solid var(--border); border-radius: 8px; padding: 0.65rem; cursor: pointer; transition: transform 0.08s; }
+    .menu-item:hover { transform: translateY(-1px); border-color: var(--primary); }
+    .menu-item .name { font-weight: 700; font-size: 0.95rem; }
+    .menu-item .desc { font-size: 0.8rem; color: var(--gray); margin: 0.2rem 0; min-height: 1.4em; }
+    .menu-item .price { color: var(--primary); font-weight: 700; font-size: 0.92rem; }
+    .menu-item .add-mini { background: var(--primary); color: white; border: none; border-radius: 6px; padding: 0.35rem 0.6rem; font-weight: 700; font-size: 0.82rem; margin-top: 0.35rem; cursor: pointer; }
+    .menu-item.sold-out { opacity: 0.45; cursor: not-allowed; }
+    .my-cart-item { background: #fdf8f0; border-radius: 8px; padding: 0.5rem 0.7rem; margin-bottom: 0.4rem; display: flex; justify-content: space-between; align-items: center; font-size: 0.9rem; }
+    .my-cart-item .extras { font-size: 0.78rem; color: var(--gray); }
+    .remove-btn { background: none; border: 1px solid #ddd; color: var(--danger); border-radius: 4px; padding: 0.15rem 0.5rem; font-size: 0.75rem; cursor: pointer; font-family: inherit; }
+    .group-id { font-family: monospace; background: #fff0e6; padding: 0.5rem; border-radius: 6px; font-size: 1.1rem; font-weight: 700; text-align: center; border: 2px dashed var(--primary); }
+    .participant { background: #fdf8f0; border-radius: 8px; padding: 0.6rem 0.8rem; margin-bottom: 0.5rem; }
+    .participant strong { color: var(--primary); }
+    .participant-items { font-size: 0.84rem; color: #555; margin: 0.25rem 0 0; padding-inline-start: 1rem; }
+    .total-bar { background: var(--success); color: white; padding: 0.7rem 1rem; border-radius: 10px; font-weight: 800; font-size: 1.1rem; text-align: center; margin: 1rem 0; }
+    .msg { font-size: 0.88rem; padding: 0.5rem 0.8rem; border-radius: 6px; margin: 0.5rem 0; }
+    .msg.ok { background: #d4edda; color: #155724; }
+    .msg.err { background: #f8d7da; color: #721c24; }
+    .muted { color: var(--gray); font-size: 0.85rem; }
+    .toast { position: fixed; bottom: 1.5rem; left: 50%; transform: translateX(-50%); background: #222; color: #fff; padding: 0.7rem 1.2rem; border-radius: 10px; opacity: 0; transition: opacity 0.2s; z-index: 200; font-weight: 700; pointer-events: none; }
+    .toast.show { opacity: 1; }
+
+    /* Modal / sheet — same motion language as the main site: a bottom sheet on
+       mobile you can drag to dismiss, a centered dialog on desktop. */
+    .modal-overlay {
+        position: fixed; inset: 0; background: rgba(0,0,0,0); backdrop-filter: blur(0px); -webkit-backdrop-filter: blur(0px);
+        display: flex; align-items: flex-end; justify-content: center; padding: 0; z-index: 100;
+        visibility: hidden; pointer-events: none; transition: backdrop-filter .25s ease;
+    }
+    .modal-overlay.open { visibility: visible; pointer-events: auto; backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
+    @media (min-width: 640px) { .modal-overlay { align-items: center; padding: 1rem; overflow-y: auto; } }
+    .modal { background: white; border-radius: 20px 20px 0 0; padding: 1.2rem 1.3rem 2rem; max-width: 480px; width: 100%; max-height: 92vh; overflow-y: auto; position: relative; will-change: transform; }
+    @media (min-width: 640px) { .modal { border-radius: 12px; padding: 1.2rem 1.3rem; margin: auto; } }
+    .sheet-handle { width: 38px; height: 5px; border-radius: 3px; background: #ddd; margin: -0.4rem auto 0.8rem; touch-action: none; cursor: grab; }
+    @media (min-width: 640px) { .sheet-handle { display: none; } }
+    .modal-close { position: absolute; top: 0.6rem; left: 0.8rem; background: none; border: none; font-size: 1.4rem; cursor: pointer; color: var(--gray); }
+    .modal-close:active { transform: scale(0.9); }
+    .modal h3 { margin: 0 0 0.3rem; color: var(--primary); letter-spacing: -0.01em; }
+    .add-mini:active, .btn:active:not(:disabled), .qty-btn:active, .remove-btn:active, .modal-add-btn:active { transform: scale(0.94); transition: transform 100ms ease-out; }
+    @media (prefers-reduced-motion: reduce) {
+        *, *::before, *::after { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; }
+        .modal-overlay, .modal, .sheet-handle { transition-duration: 0.12s !important; }
+        .modal { transform: none !important; }
+    }
+    .modal-desc { color: var(--gray); font-size: 0.88rem; margin: 0 0 0.7rem; }
+    .qty-row { display: flex; align-items: center; gap: 0.6rem; margin: 0.5rem 0; }
+    .qty-btn { width: 32px; height: 32px; border-radius: 50%; border: 2px solid var(--primary); background: white; color: var(--primary); font-weight: 700; font-size: 1.1rem; cursor: pointer; }
+    .extras-title { font-weight: 700; margin: 0.8rem 0 0.4rem; color: var(--primary); }
+    .extra-row { display: flex; justify-content: space-between; align-items: center; padding: 0.4rem 0; border-bottom: 1px solid #f0e3d2; }
+    .extra-row:last-child { border-bottom: none; }
+    .extra-price { color: var(--primary); font-weight: 700; font-size: 0.85rem; margin-right: 0.4rem; }
+    .qty-ctrl { display: flex; gap: 0.4rem; align-items: center; }
+    .qty-num { min-width: 22px; text-align: center; font-weight: 700; }
+    .modal-add-btn { background: var(--primary); color: white; border: none; padding: 0.85rem; border-radius: 8px; font-weight: 800; font-size: 1rem; cursor: pointer; width: 100%; margin-top: 1rem; font-family: inherit; }
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <h1><a href="/">🍔 <span id="group-brand-name">הדיינר</span></a> — הזמנה קבוצתית</h1>
+
+  <div id="closed-banner" style="display:none;background:#1a1a1a;color:#fff;text-align:center;padding:1rem 1.2rem;border-radius:10px;margin:0.6rem 0 1rem;border:2px solid #444;">
+    <div style="font-size:1.6rem;">🔒</div>
+    <strong style="font-size:1.05rem;display:block;margin:0.2rem 0;">המסעדה סגורה כרגע</strong>
+    <span id="closed-msg" style="color:#bbb;font-size:0.9rem;"></span>
+    <div style="color:#999;font-size:0.82rem;margin-top:0.3rem;">אפשר להרכיב את הסל מראש — שליחה תעבוד כשנהיה פתוחים.</div>
+  </div>
+
+  <div id="state-create" style="display:none;">
+    <div class="card">
+      <h2>📣 פתח הזמנה קבוצתית</h2>
+      <p class="muted">פתח הזמנה אחת עם החברים. כל אחד מוסיף לעצמו → אתה (המנהל) שולח הכל בבת אחת למטבח.</p>
+      <label for="m-name">השם שלי *</label>
+      <input id="m-name" placeholder="לדוגמה: יוסי">
+      <label for="m-phone">טלפון *</label>
+      <input id="m-phone" type="tel" placeholder="05X-XXXXXXX">
+      <div style="margin-top:1rem;"><button class="btn" id="create-btn">פתח קבוצה</button></div>
+      <div id="create-msg"></div>
+    </div>
+  </div>
+
+  <div id="state-active" style="display:none;">
+    <div class="card">
+      <h2 id="active-title">הצטרף להזמנה</h2>
+      <div id="group-id-display" class="group-id"></div>
+      <div id="manager-actions" style="display:none;margin-top:0.8rem;">
+        <div class="row">
+          <button class="btn ghost" onclick="copyShareLink()">📋 העתק לינק</button>
+          <button class="btn" onclick="shareWa()">📱 שלח בוואטסאפ</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" id="join-card">
+      <h2>👤 פרטיך</h2>
+      <label for="p-name">השם שלי *</label>
+      <input id="p-name">
+      <label for="p-phone">טלפון *</label>
+      <input id="p-phone" type="tel" placeholder="05X-XXXXXXX">
+      <div style="margin-top:0.8rem;"><button class="btn" id="join-btn">המשך לתפריט</button></div>
+    </div>
+
+    <div class="card" id="menu-card" style="display:none;">
+      <h2>🍔 בחר מהתפריט</h2>
+      <div id="menu-sections"></div>
+
+      <h3 style="margin-top:1rem;">הסל שלי</h3>
+      <div id="my-cart"></div>
+      <div id="my-subtotal" class="muted" style="font-weight:700;"></div>
+      <div style="margin-top:0.5rem;"><button class="btn green" id="save-cart-btn">💾 עדכן את ההזמנה שלי בקבוצה</button></div>
+      <div id="save-msg"></div>
+    </div>
+
+    <div class="card">
+      <h2>👥 הזמנה קבוצתית כעת</h2>
+      <div id="participants"></div>
+      <div class="total-bar" id="total-bar">סה"כ: ₪0</div>
+    </div>
+
+    <div class="card" id="manager-submit" style="display:none;">
+      <h2>📤 שליחה למטבח</h2>
+      <label for="d-type">סוג</label>
+      <select id="d-type"><option>איסוף</option><option>משלוח</option></select>
+      <label for="d-addr">כתובת (למשלוח)</label>
+      <input id="d-addr">
+      <label for="d-pay">תשלום</label>
+      <select id="d-pay">
+        <option value="cash">מזומן באיסוף/לשליח</option>
+        <option value="credit">אשראי טלפוני</option>
+      </select>
+      <div style="margin-top:0.8rem;"><button class="btn green" id="submit-btn">🍔 שלח את כל ההזמנה</button></div>
+      <div id="submit-msg"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Item modal (with extras + notes + qty) -->
+<div class="modal-overlay" id="extras-modal">
+  <div class="modal">
+    <div class="sheet-handle" id="extras-modal-handle" aria-hidden="true"></div>
+    <button class="modal-close" onclick="closeModal()">✕</button>
+    <h3 id="modal-name"></h3>
+    <p class="modal-desc" id="modal-desc"></p>
+    <div class="qty-row">
+      <span style="font-weight:700;">כמות:</span>
+      <button class="qty-btn" onclick="changeItemQty(-1)">−</button>
+      <span id="modal-qty" style="font-weight:700;min-width:24px;text-align:center;">1</span>
+      <button class="qty-btn" onclick="changeItemQty(1)">+</button>
+    </div>
+    <div id="modal-extras"></div>
+    <label style="margin-top:0.7rem;">הערות (אופציונלי)</label>
+    <textarea id="modal-notes" placeholder="ללא בצל, חריף בצד..."></textarea>
+    <button class="modal-add-btn" id="modal-add-btn" onclick="confirmAdd()">הוסף לעגלה</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const FB_URL = SITE_CONFIG.firebase.dbUrl;
+async function fbGet(p) { const r = await fetch(FB_URL + p + ".json"); return r.ok ? r.json() : null; }
+document.getElementById("group-brand-name").textContent = SITE_CONFIG.business.name;
+function showMsg(elId, text, ok) { const e = document.getElementById(elId); if (e) e.innerHTML = '<div class="msg ' + (ok ? "ok" : "err") + '">' + text + '</div>'; }
+function normalizePhone(p) { return String(p || "").replace(/\D/g, "").replace(/^972/, "0"); }
+function validPhone(p) { return /^05\d{8}$/.test(normalizePhone(p)); }
+function toast(msg) { const t = document.getElementById("toast"); t.textContent = msg; t.classList.add("show"); setTimeout(() => t.classList.remove("show"), 2000); }
+function escapeHtml(s) { return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"); }
+
+let MENU = {}, EXTRAS = { veggies: [], cheese: [], premium: [] };
+const EXTRAS_GROUPS = [
+  { key: "veggies", label: "🥬 תוספות ירקות" },
+  { key: "cheese",  label: "🧀 תוספות גבינות" },
+  { key: "premium", label: "✨ פרימיום" }
+];
+const SECTION_LABELS = { burgers: "🍔 המבורגרים", chicken: "🍗 עוף", sides: "🍟 נשנושים", drinks: "🥤 משקאות" };
+const SECTION_ORDER = ["burgers", "chicken", "sides", "drinks"];
+let soldOutSet = new Set();
+let ITEM_IDX = [];
+
+let myCart = [];                            // [{name, basePrice, extras:[{name,qty,price}], notes, total}]
+let modalItem = null, modalExtras = {}, modalQty = 1;
+
+let currentGroup = null;
+let myPhone = "", myName = "";
+let pollHandle = null;
+
+// Mirrors index.html getHoursStatus() so manager sees the same closed banner.
+function getILHoursStatus() {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Asia/Jerusalem", weekday: "short", hour: "numeric", minute: "numeric", hour12: false
+  }).formatToParts(new Date());
+  const day = parts.find(p => p.type === "weekday").value;
+  const t = parseInt(parts.find(p => p.type === "hour").value, 10) * 60 + parseInt(parts.find(p => p.type === "minute").value, 10);
+  const d = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 }[day];
+  let pickup = false, delivery = false, msg = "";
+  if (d >= 1 && d <= 4) { pickup = t >= 1080 && t < 1440; delivery = t >= 1080 && t < 1380; if (t < 1080) msg = "נפתח היום ב-18:00"; else if (t >= 1440) msg = "נפתח מחר ב-18:00"; }
+  else if (d === 5) { pickup = t >= 1080; if (t < 1080) msg = "נפתח היום בשישי ב-18:00"; }
+  else if (d === 6) { pickup = t < 60 || t >= 720; delivery = t >= 1080 && t < 1380; if (t >= 60 && t < 720) msg = "נפתח היום בשבת ב-12:00"; }
+  else { msg = "נפתח ביום שני ב-18:00"; }
+  return { pickupOpen: pickup, deliveryOpen: delivery, msg };
+}
+async function applyClosedBanner() {
+  const { pickupOpen, msg } = getILHoursStatus();
+  const adminState = (await fbGet("admin_state")) || {};
+  const pickupOn = adminState.pickupOn !== false;
+  const banner = document.getElementById("closed-banner");
+  const closed = !(pickupOpen && pickupOn);
+  banner.style.display = closed ? "block" : "none";
+  document.getElementById("closed-msg").textContent = closed
+    ? (pickupOn === false ? "המסעדה סגורה ידנית כרגע." : (msg || "נסה שוב במהלך שעות הפעילות."))
+    : "";
+}
+
+async function loadMenu() {
+  const m = (await fbGet("menu")) || {};
+  MENU = m;
+  const so = (await fbGet("admin_state/soldOut")) || [];
+  soldOutSet = new Set(Array.isArray(so) ? so : Object.values(so));
+  const remote = await fbGet("siteSettings/extras");
+  if (remote) {
+    EXTRAS_GROUPS.forEach(g => {
+      const raw = remote[g.key];
+      EXTRAS[g.key] = Array.isArray(raw) ? raw : (raw ? Object.values(raw) : []);
+    });
+  }
+  ITEM_IDX = [];
+  SECTION_ORDER.forEach(sec => (MENU[sec] || []).forEach(it => ITEM_IDX.push({ ...it, section: sec })));
+}
+
+function renderMenu() {
+  const host = document.getElementById("menu-sections");
+  host.innerHTML = "";
+  SECTION_ORDER.forEach(sec => {
+    const items = (MENU[sec] || []).filter(i => i && i.name && i.price);
+    if (!items.length) return;
+    const title = document.createElement("div");
+    title.className = "section-title"; title.textContent = SECTION_LABELS[sec];
+    host.appendChild(title);
+    const grid = document.createElement("div");
+    grid.className = "menu-grid";
+    items.forEach((it, localIdx) => {
+      const globalIdx = ITEM_IDX.findIndex(x => x.name === it.name && x.section === sec);
+      const sold = soldOutSet.has(it.name);
+      const card = document.createElement("div");
+      card.className = "menu-item" + (sold ? " sold-out" : "");
+      card.innerHTML = '<div class="name">' + escapeHtml(it.name) + (sold ? " (אזל)" : "") + '</div>' +
+                       (it.desc ? '<div class="desc">' + escapeHtml(it.desc) + '</div>' : '<div class="desc">&nbsp;</div>') +
+                       '<div class="price">₪' + it.price + '</div>' +
+                       (sold ? '' : '<button class="add-mini">הוסף +</button>');
+      if (!sold) card.addEventListener("click", () => openModal(globalIdx));
+      grid.appendChild(card);
+    });
+    host.appendChild(grid);
+  });
+}
+
+// ── Apple-style sheet motion (same engine as the main site's index.html):
+// reads the live transform before starting a new transition (interrupt-safe),
+// tracks a drag 1:1 via the handle, rubber-bands past the top, and decides
+// dismiss-vs-snap-back from release velocity, not just position. ──
+const SHEET_EASE = "cubic-bezier(0.32, 0.72, 0, 1)";
+const SHEET_EASE_BOUNCE = "cubic-bezier(0.34, 1.56, 0.64, 1)";
+const REDUCE_MOTION = !!(window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches);
+function sheetCurrentY(panel) {
+  try { const t = getComputedStyle(panel).transform; return t === "none" ? 0 : new DOMMatrixReadOnly(t).m42; } catch { return 0; }
+}
+function sheetSetScrim(overlay, progress) { overlay.style.backgroundColor = "rgba(0,0,0," + (0.6 * Math.max(0, Math.min(1, progress))) + ")"; }
+function sheetRubberband(overshoot, dimension, constant = 0.55) { return (overshoot * dimension * constant) / (dimension + constant * Math.abs(overshoot)); }
+function sheetAnimateTo(panel, overlay, y, { duration = 380, easing = SHEET_EASE, onDone } = {}) {
+  if (panel._sheetDoneHandler) { panel.removeEventListener("transitionend", panel._sheetDoneHandler); panel._sheetDoneHandler = null; }
+  const h = panel.offsetHeight || 1;
+  if (REDUCE_MOTION) { panel.style.transition = "none"; panel.style.transform = "translateY(" + y + "px)"; sheetSetScrim(overlay, y <= 0 ? 1 : 0); onDone && onDone(); return; }
+  const cur = sheetCurrentY(panel);
+  panel.style.transition = "none"; panel.style.transform = "translateY(" + cur + "px)"; void panel.offsetHeight;
+  panel.style.transition = "transform " + duration + "ms " + easing;
+  panel.style.transform = "translateY(" + y + "px)";
+  overlay.style.transition = "background-color " + duration + "ms " + easing;
+  sheetSetScrim(overlay, 1 - Math.max(0, Math.min(1, y / h)));
+  const handler = (e) => { if (e.propertyName === "transform") { panel.removeEventListener("transitionend", handler); onDone && onDone(); } };
+  panel._sheetDoneHandler = handler;
+  panel.addEventListener("transitionend", handler);
+}
+function presentSheet(panel, overlay) {
+  overlay.classList.add("open");
+  const h = panel.offsetHeight || 1;
+  panel.style.transition = "none"; panel.style.transform = "translateY(" + h + "px)";
+  sheetSetScrim(overlay, 0); void panel.offsetHeight;
+  requestAnimationFrame(() => sheetAnimateTo(panel, overlay, 0, { duration: 380 }));
+  document.body.style.overflow = "hidden";
+}
+function dismissSheet(panel, overlay, velocity = 0) {
+  const h = panel.offsetHeight || 1;
+  const dur = Math.max(180, Math.min(320, 60000 / Math.max(200, Math.abs(velocity))));
+  sheetAnimateTo(panel, overlay, h + 40, { duration: dur, easing: SHEET_EASE, onDone: () => { overlay.classList.remove("open"); document.body.style.overflow = ""; } });
+}
+function makeSheetDraggable(handle, panel, overlay, onDismiss) {
+  if (!handle) return;
+  let dragging = false, startY = 0, startTranslate = 0, history = [];
+  handle.addEventListener("pointerdown", (e) => {
+    if (REDUCE_MOTION) return;
+    dragging = true; try { handle.setPointerCapture(e.pointerId); } catch {}
+    startY = e.clientY; startTranslate = sheetCurrentY(panel);
+    panel.style.transition = "none"; overlay.style.transition = "none";
+    history = [{ y: e.clientY, t: performance.now() }];
+  });
+  handle.addEventListener("pointermove", (e) => {
+    if (!dragging) return;
+    const h = panel.offsetHeight || 1;
+    let y = startTranslate + (e.clientY - startY);
+    if (y < 0) y = sheetRubberband(y, h);
+    panel.style.transform = "translateY(" + y + "px)";
+    sheetSetScrim(overlay, 1 - Math.max(0, Math.min(1, y / h)));
+    history.push({ y: e.clientY, t: performance.now() });
+    if (history.length > 5) history.shift();
+  });
+  function endDrag() {
+    if (!dragging) return;
+    dragging = false;
+    const h = panel.offsetHeight || 1;
+    const y = sheetCurrentY(panel);
+    const last = history[history.length - 1], first = history[0];
+    const dt = Math.max(16, last.t - first.t);
+    const velocity = (last.y - first.y) / (dt / 1000);
+    if (y > h * 0.28 || velocity > 600) onDismiss(velocity);
+    else sheetAnimateTo(panel, overlay, 0, { duration: 320, easing: velocity > 200 ? SHEET_EASE_BOUNCE : SHEET_EASE });
+  }
+  handle.addEventListener("pointerup", endDrag);
+  handle.addEventListener("pointercancel", endDrag);
+}
+const extrasOverlayEl = document.getElementById("extras-modal");
+const extrasPanelEl = extrasOverlayEl.querySelector(".modal");
+makeSheetDraggable(document.getElementById("extras-modal-handle"), extrasPanelEl, extrasOverlayEl,
+  (v) => dismissSheet(extrasPanelEl, extrasOverlayEl, v));
+extrasOverlayEl.addEventListener("click", (e) => { if (e.target === extrasOverlayEl) closeModal(); });
+
+function openModal(idx) {
+  modalItem = ITEM_IDX[idx]; if (!modalItem) return;
+  modalExtras = {}; modalQty = 1;
+  document.getElementById("modal-name").textContent = modalItem.name;
+  document.getElementById("modal-desc").textContent = modalItem.desc || "";
+  document.getElementById("modal-notes").value = "";
+  document.getElementById("modal-qty").textContent = "1";
+
+  const container = document.getElementById("modal-extras");
+  container.innerHTML = "";
+  if (modalItem.extras === true) {
+    let html = "";
+    EXTRAS_GROUPS.forEach(g => {
+      const items = EXTRAS[g.key] || [];
+      if (!items.length) return;
+      html += '<div class="extras-title">' + g.label + '</div>' + items.map(extraRow).join("");
+    });
+    container.innerHTML = html;
+  } else if (Array.isArray(modalItem.extras) && modalItem.extras.length) {
+    const custom = modalItem.extras
+      .filter(e => e && e.name && Number(e.price) > 0)
+      .map(e => ({ n: e.name, p: Number(e.price) }));
+    if (custom.length) {
+      container.innerHTML = '<div class="extras-title">✨ תוספות מומלצות למנה</div>' +
+        custom.map(extraRow).join("");
+    }
+  }
+  updateModalBtn();
+  presentSheet(extrasPanelEl, extrasOverlayEl);
+}
+function extraRow(e) {
+  const key = "eq_" + e.n.replace(/[^a-zA-Z0-9]/g, "_");
+  return '<div class="extra-row"><div><span>' + escapeHtml(e.n) + '</span>' +
+         '<span class="extra-price">+' + e.p + ' ₪</span></div>' +
+         '<div class="qty-ctrl">' +
+         '<button class="qty-btn" data-eact="dec" data-en="' + escapeHtml(e.n) + '" data-ep="' + e.p + '">−</button>' +
+         '<span class="qty-num" id="' + key + '">0</span>' +
+         '<button class="qty-btn" data-eact="inc" data-en="' + escapeHtml(e.n) + '" data-ep="' + e.p + '">+</button>' +
+         '</div></div>';
+}
+document.addEventListener("click", (e) => {
+  const act = e.target.dataset && e.target.dataset.eact;
+  if (!act) return;
+  const name = e.target.dataset.en, price = Number(e.target.dataset.ep);
+  if (!modalExtras[name]) modalExtras[name] = { qty: 0, price };
+  modalExtras[name].qty = Math.max(0, modalExtras[name].qty + (act === "inc" ? 1 : -1));
+  const key = "eq_" + name.replace(/[^a-zA-Z0-9]/g, "_");
+  const el = document.getElementById(key); if (el) el.textContent = modalExtras[name].qty;
+  updateModalBtn();
+});
+function changeItemQty(delta) {
+  modalQty = Math.max(1, modalQty + delta);
+  document.getElementById("modal-qty").textContent = modalQty;
+  updateModalBtn();
+}
+function closeModal() {
+  dismissSheet(extrasPanelEl, extrasOverlayEl);
+}
+function modalUnitPrice() {
+  const extTotal = Object.values(modalExtras).reduce((s, e) => s + e.qty * e.price, 0);
+  return (modalItem ? modalItem.price : 0) + extTotal;
+}
+function updateModalBtn() {
+  const unit = modalUnitPrice();
+  document.getElementById("modal-add-btn").textContent = "הוסף " + modalQty + " × ₪" + unit + " = ₪" + (unit * modalQty);
+}
+function confirmAdd() {
+  if (!modalItem) return;
+  const sel = Object.entries(modalExtras).filter(([, v]) => v.qty > 0).map(([n, v]) => ({ name: n, qty: v.qty, price: v.price }));
+  const notes = document.getElementById("modal-notes").value.trim();
+  const unit = modalUnitPrice();
+  for (let i = 0; i < modalQty; i++) {
+    myCart.push({ name: modalItem.name, basePrice: modalItem.price, extras: sel, notes, total: unit });
+  }
+  closeModal(); renderMyCart();
+  toast("✔ נוסף לסל");
+}
+function renderMyCart() {
+  const host = document.getElementById("my-cart");
+  host.innerHTML = "";
+  if (!myCart.length) host.innerHTML = '<div class="muted">הסל ריק</div>';
+  myCart.forEach((it, i) => {
+    const extText = (it.extras || []).map(e => e.name + (e.qty > 1 ? " ×" + e.qty : "")).join(", ");
+    const d = document.createElement("div"); d.className = "my-cart-item";
+    d.innerHTML = '<div><strong>' + escapeHtml(it.name) + '</strong>' +
+                  (extText ? '<div class="extras">+ ' + escapeHtml(extText) + '</div>' : '') +
+                  (it.notes ? '<div class="extras">📝 ' + escapeHtml(it.notes) + '</div>' : '') +
+                  '</div>' +
+                  '<div style="display:flex;gap:0.5rem;align-items:center;">' +
+                  '<span style="font-weight:700;">₪' + it.total + '</span>' +
+                  '<button class="remove-btn" data-rm="' + i + '">🗑</button></div>';
+    host.appendChild(d);
+  });
+  host.querySelectorAll("[data-rm]").forEach(b => b.addEventListener("click", (e) => {
+    myCart.splice(Number(e.target.dataset.rm), 1); renderMyCart();
+  }));
+  const sub = myCart.reduce((s, c) => s + c.total, 0);
+  document.getElementById("my-subtotal").textContent = "הסל שלי: ₪" + sub;
+}
+
+async function createGroup() {
+  const name = document.getElementById("m-name").value.trim();
+  const phone = document.getElementById("m-phone").value.trim();
+  if (!name || !validPhone(phone)) { showMsg("create-msg", "מלא שם וטלפון תקין", false); return; }
+  const btn = document.getElementById("create-btn"); btn.disabled = true; btn.textContent = "פותח...";
+  try {
+    const r = await fetch("/.netlify/functions/create-group-order", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ managerPhone: phone, managerName: name })
+    });
+    const data = await r.json();
+    if (!r.ok) { showMsg("create-msg", data.error || "שגיאה", false); btn.disabled = false; btn.textContent = "פתח קבוצה"; return; }
+    location.href = "/group.html?id=" + data.groupId + "&mphone=" + encodeURIComponent(phone);
+  } catch { showMsg("create-msg", "שגיאת רשת", false); btn.disabled = false; btn.textContent = "פתח קבוצה"; }
+}
+
+async function joinGroup() {
+  const name = document.getElementById("p-name").value.trim();
+  const phone = document.getElementById("p-phone").value.trim();
+  if (!name || !validPhone(phone)) { alert("מלא שם וטלפון"); return; }
+  myName = name; myPhone = normalizePhone(phone);
+  document.getElementById("join-card").style.display = "none";
+  document.getElementById("menu-card").style.display = "block";
+  await loadMenu(); renderMenu(); renderMyCart();
+}
+
+async function saveMyCart() {
+  if (!currentGroup) return;
+  if (!myCart.length) { alert("הסל שלך ריק"); return; }
+  const btn = document.getElementById("save-cart-btn"); btn.disabled = true; btn.textContent = "שומר...";
+  try {
+    const r = await fetch("/.netlify/functions/update-group-items", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ groupId: currentGroup.groupId, phone: myPhone, name: myName, items: myCart })
+    });
+    const data = await r.json();
+    if (!r.ok) { showMsg("save-msg", data.error || "שגיאה", false); return; }
+    showMsg("save-msg", "✅ נשמר!", true);
+    await refreshGroup();
+  } catch { showMsg("save-msg", "שגיאת רשת", false); }
+  finally { btn.disabled = false; btn.textContent = "💾 עדכן את ההזמנה שלי בקבוצה"; }
+}
+
+async function refreshGroup() {
+  if (!currentGroup) return;
+  const fresh = await fbGet("groupOrders/" + currentGroup.groupId);
+  if (!fresh) return;
+  currentGroup = fresh;
+  const host = document.getElementById("participants");
+  host.innerHTML = "";
+  const list = Object.entries(fresh.participants || {});
+  if (!list.length) host.innerHTML = '<div class="muted">עדיין אין משתתפים</div>';
+  list.forEach(([phone, p]) => {
+    const d = document.createElement("div"); d.className = "participant";
+    const itemsHtml = (p.items || []).map(i => {
+      const ext = (i.extras || []).map(e => e.name + (e.qty > 1 ? " ×" + e.qty : "")).join(", ");
+      return '<li>' + escapeHtml(i.name) + (ext ? " + " + escapeHtml(ext) : "") + ' (₪' + i.total + ')</li>';
+    }).join("");
+    d.innerHTML = '<strong>' + escapeHtml(p.name) + '</strong> — ₪' + (p.subtotal || 0) +
+      (itemsHtml ? '<ul class="participant-items">' + itemsHtml + '</ul>' : ' <span class="muted">(טרם הוסיף)</span>');
+    host.appendChild(d);
+  });
+  document.getElementById("total-bar").textContent = "סה\"כ קבוצתי: ₪" + (fresh.totalAmount || 0);
+
+  if (fresh.status === "submitted") {
+    document.getElementById("menu-card").style.display = "none";
+    document.getElementById("manager-submit").style.display = "none";
+    document.getElementById("active-title").textContent = "✅ ההזמנה נשלחה למטבח!";
+    if (pollHandle) clearInterval(pollHandle);
+  }
+}
+
+async function submitGroup() {
+  const type = document.getElementById("d-type").value;
+  const address = document.getElementById("d-addr").value.trim();
+  const payment = document.getElementById("d-pay").value;
+  if (type === "משלוח" && !address) { alert("מלא כתובת"); return; }
+  const btn = document.getElementById("submit-btn"); btn.disabled = true; btn.textContent = "שולח...";
+  try {
+    const r = await fetch("/.netlify/functions/submit-group-order", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ groupId: currentGroup.groupId, managerPhone: myPhone, delivery: { type, address, payment } })
+    });
+    const data = await r.json();
+    if (!r.ok) { showMsg("submit-msg", data.message || data.error || "שגיאה", false); btn.disabled = false; btn.textContent = "🍔 שלח את כל ההזמנה"; return; }
+    showMsg("submit-msg", "✅ נשלח! סה\"כ ₪" + data.total + ". אנחנו נתקשר לאישור.", true);
+    await refreshGroup();
+  } catch { showMsg("submit-msg", "שגיאת רשת", false); btn.disabled = false; btn.textContent = "🍔 שלח את כל ההזמנה"; }
+}
+
+function copyShareLink() {
+  const url = location.origin + "/group.html?id=" + currentGroup.groupId;
+  navigator.clipboard.writeText(url); toast("הלינק הועתק");
+}
+function shareWa() {
+  const url = location.origin + "/group.html?id=" + currentGroup.groupId;
+  const text = "מזמינים יחד מ" + SITE_CONFIG.business.name + " 🍔 הצטרף ובחר לעצמך:\n" + url;
+  window.open("https://wa.me/?text=" + encodeURIComponent(text), "_blank");
+}
+
+async function init() {
+  const params = new URLSearchParams(location.search);
+  const groupId = params.get("id");
+  if (!groupId) {
+    document.getElementById("state-create").style.display = "block";
+    document.getElementById("create-btn").addEventListener("click", createGroup);
+    return;
+  }
+  const group = await fbGet("groupOrders/" + groupId);
+  if (!group) { alert("הקבוצה לא נמצאה או שפג תוקפה"); location.href = "/group.html"; return; }
+  currentGroup = group;
+  document.getElementById("state-active").style.display = "block";
+  document.getElementById("group-id-display").textContent = groupId;
+
+  const mphone = normalizePhone(params.get("mphone") || "");
+  const isManager = mphone && mphone === group.managerPhone;
+  if (isManager) {
+    myPhone = group.managerPhone; myName = group.managerName;
+    document.getElementById("active-title").textContent = "אתה המנהל — שתף עם החברים";
+    document.getElementById("manager-actions").style.display = "block";
+    document.getElementById("manager-submit").style.display = "block";
+    document.getElementById("p-name").value = group.managerName;
+    document.getElementById("p-phone").value = group.managerPhone;
+  }
+
+  document.getElementById("join-btn").addEventListener("click", joinGroup);
+  document.getElementById("save-cart-btn").addEventListener("click", saveMyCart);
+  document.getElementById("submit-btn").addEventListener("click", submitGroup);
+
+  await refreshGroup();
+  await applyClosedBanner();
+  pollHandle = setInterval(refreshGroup, 6000);
+  setInterval(applyClosedBanner, 60000);
+}
+init();
+</script>
+</body>
+</html>

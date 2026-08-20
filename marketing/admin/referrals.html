@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Referrals · הדיינר</title>
+  <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="marketing.css">
+  <style>
+    table { width: 100%; border-collapse: collapse; font-size: 0.92rem; }
+    th, td { padding: 0.55rem 0.4rem; border-bottom: 1px solid var(--border); text-align: right; }
+    th { background: var(--surface-2); font-weight: 700; }
+    .pct { color: var(--ok); font-weight: 700; }
+  </style>
+</head>
+<body>
+<div id="nav"></div>
+<div class="mkt-wrap">
+  <h1>🎁 Referrals</h1>
+  <div class="grid cols-4" id="kpis"></div>
+  <div class="card" style="padding:0;overflow:auto;">
+    <table>
+      <thead><tr><th>שולח</th><th>טלפון</th><th>קודים שיצר</th><th>מומשו</th><th>תגמולים</th><th>אחוז המרה</th></tr></thead>
+      <tbody id="tbody"></tbody>
+    </table>
+  </div>
+</div>
+<script src="/site.config.js"></script>
+<script src="marketing-common.js"></script>
+<script>
+renderNav("referrals.html");
+
+async function init() {
+  const rows = await fbList("referrals");
+  const totalCodes = rows.reduce((s, r) => s + (r.invitesSent || 0), 0);
+  const totalCompleted = rows.reduce((s, r) => s + (r.invitesCompleted || 0), 0);
+  const totalRewards = rows.reduce((s, r) => s + (r.rewardsEarned || 0), 0);
+  document.getElementById("kpis").innerHTML = `
+    ${kpi("👥", rows.length, "שולחים פעילים")}
+    ${kpi("📨", totalCodes, "קודים שנוצרו")}
+    ${kpi("✅", totalCompleted, "המרות")}
+    ${kpi("🎁", totalRewards, "תגמולים")}`;
+
+  const tbody = document.getElementById("tbody");
+  rows.sort((a, b) => (b.invitesCompleted || 0) - (a.invitesCompleted || 0));
+  tbody.innerHTML = rows.length ? "" : '<tr><td colspan="6" class="muted small" style="text-align:center;padding:1rem;">אין referrals עדיין</td></tr>';
+  rows.forEach(r => {
+    const sent = r.invitesSent || 0;
+    const done = r.invitesCompleted || 0;
+    const pct = sent ? Math.round(done / sent * 100) + "%" : "—";
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${escapeHtml(r.referrerName || "—")}</td>
+      <td dir="ltr" style="text-align:right;">${escapeHtml(r.id || r.referrerPhone || "")}</td>
+      <td>${sent}</td>
+      <td>${done}</td>
+      <td>${r.rewardsEarned || 0}</td>
+      <td class="pct">${pct}</td>`;
+    tbody.appendChild(tr);
+  });
+}
+function kpi(icon, num, lbl) { return `<div class="kpi"><div class="num">${icon} ${num}</div><div class="lbl">${lbl}</div></div>`; }
+requireAuth(init);
+</script>
+</body>
+</html>

@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>אישור UGC · הדיינר</title>
+  <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="marketing.css">
+</head>
+<body>
+<div id="nav"></div>
+<div class="mkt-wrap">
+  <h1>📸 אישור תמונות לקוחות</h1>
+  <p class="muted small">אשר תמונות → המערכת מנפיקה קופון הנחה ללקוח ומוסיפה את התמונה למאגר הנכסים.</p>
+
+  <div class="btn-row" style="margin-bottom:1rem;">
+    <button class="btn ghost sm filter-btn active" data-f="pending">ממתינות</button>
+    <button class="btn ghost sm filter-btn" data-f="approved">אושרו</button>
+    <button class="btn ghost sm filter-btn" data-f="rejected">נדחו</button>
+    <button class="btn ghost sm filter-btn" data-f="all">הכל</button>
+  </div>
+
+  <div class="grid cols-3" id="list"><div class="muted small">טוען...</div></div>
+</div>
+
+<script src="/site.config.js"></script>
+<script src="marketing-common.js"></script>
+<script>
+renderNav("ugc-review.html");
+let all = [];
+let filter = "pending";
+
+async function init() {
+  document.querySelectorAll(".filter-btn").forEach(b => b.addEventListener("click", () => {
+    filter = b.dataset.f;
+    document.querySelectorAll(".filter-btn").forEach(x => x.classList.toggle("active", x === b));
+    render();
+  }));
+  await load();
+}
+
+async function load() {
+  try {
+    const data = await api("ugc-approve", null, "GET");
+    all = (data.items || []).sort((a, b) => (b.submittedAt || 0) - (a.submittedAt || 0));
+  } catch (e) { toast(e.message); all = []; }
+  render();
+}
+
+function render() {
+  const host = document.getElementById("list");
+  const list = all.filter(u => filter === "all" || u.status === filter);
+  if (!list.length) { host.innerHTML = '<div class="empty">אין תמונות בקטגוריה הזו</div>'; return; }
+  host.innerHTML = "";
+  list.forEach(u => {
+    const card = document.createElement("div");
+    card.className = "card";
+    const badge = u.status === "approved" ? '<span class="badge ok">אושר</span>'
+      : u.status === "rejected" ? '<span class="badge danger">נדחה</span>'
+      : '<span class="badge warn">ממתין</span>';
+    card.innerHTML = `
+      <img class="thumb" src="${u.imageData}" alt="UGC">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:0.5rem;">
+        <strong>${escapeHtml(u.customerName || "לקוח")}</strong>${badge}
+      </div>
+      ${u.customerHandle ? `<div class="small muted">@${escapeHtml(u.customerHandle)} ${u.consentTag ? "· הסכים לתיוג" : ""}</div>` : ""}
+      ${u.note ? `<div class="small" style="margin-top:0.3rem;">${escapeHtml(u.note)}</div>` : ""}
+      <div class="small muted">${fmtDateTime(u.submittedAt)}</div>
+      ${u.couponCode ? `<div class="small"><strong>קופון:</strong> ${escapeHtml(u.couponCode)} (${u.couponPercent || 5}%)</div>` : ""}
+    `;
+    if (u.status === "pending") {
+      const row = document.createElement("div");
+      row.className = "btn-row";
+      row.innerHTML = `<input type="number" value="5" min="1" max="50" style="width:70px;" title="% הנחה" class="pct">
+        <button class="btn sm ok-btn">✓ אשר + קופון</button>
+        <button class="btn sm danger reject-btn">✗ דחה</button>`;
+      row.querySelector(".ok-btn").addEventListener("click", () => act(u.id, "approve", row));
+      row.querySelector(".reject-btn").addEventListener("click", () => act(u.id, "reject", row));
+      card._pct = row.querySelector(".pct");
+      card.appendChild(row);
+    } else if (u.status === "approved") {
+      const row = document.createElement("div"); row.className = "btn-row";
+      row.innerHTML = '<button class="btn sm ghost use-btn">✍️ צור פוסט עם התמונה</button>';
+      row.querySelector(".use-btn").addEventListener("click", () => {
+        sessionStorage.setItem("prefillContent", JSON.stringify({ topic: "פוסט עם תמונת לקוח של " + (u.customerName || "") }));
+        location.href = "content-workspace.html";
+      });
+      card.appendChild(row);
+    }
+    host.appendChild(card);
+  });
+}
+
+async function act(id, action, row) {
+  const btns = row.querySelectorAll("button"); btns.forEach(b => b.disabled = true);
+  try {
+    const pct = row.querySelector(".pct");
+    const data = await api("ugc-approve", { id, action, couponPercent: pct ? Number(pct.value) : 5 });
+    if (action === "approve") toast("אושר ✔ קופון: " + data.couponCode);
+    else toast("נדחה");
+    await load();
+  } catch (e) { toast(e.message); btns.forEach(b => b.disabled = false); }
+}
+
+requireAuth(init);
+</script>
+</body>
+</html>

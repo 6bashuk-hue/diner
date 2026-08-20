@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>דאשבורד שיווק · הדיינר</title>
+  <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="marketing.css">
+  <style>
+    .action-card { cursor:pointer; text-align:center; transition:transform 0.08s; }
+    .action-card:hover { transform:translateY(-2px); border-color:var(--primary); }
+    .action-card .icon { font-size:2rem; }
+    .action-card h3 { margin:0.4rem 0 0.2rem; }
+    .day-row { display:flex; justify-content:space-between; align-items:center; padding:0.5rem 0; border-bottom:1px solid var(--border); font-size:0.9rem; gap:0.5rem; }
+  </style>
+</head>
+<body>
+<div id="nav"></div>
+<div class="mkt-wrap">
+  <h1>🏠 דאשבורד שיווק</h1>
+
+  <div class="grid cols-4" id="kpis"></div>
+
+  <h2>מה עושים?</h2>
+  <div class="grid cols-4">
+    <div class="card action-card" onclick="location.href='content-workspace.html'">
+      <div class="icon">✍️</div><h3>צור פוסט חדש</h3><p class="small muted">סדנה שמכינה פרומפט מוכן ל-Claude</p>
+    </div>
+    <div class="card action-card" onclick="location.href='consultant-bridge.html'">
+      <div class="icon">💬</div><h3>שאל את המשווק</h3><p class="small muted">הכנת הקשר לשיחת ייעוץ</p>
+    </div>
+    <div class="card action-card" onclick="location.href='calendar.html'">
+      <div class="icon">📅</div><h3>לוח שנה</h3><p class="small muted">נהל ותזמן פוסטים</p>
+    </div>
+    <div class="card action-card" onclick="location.href='ugc-review.html'">
+      <div class="icon">📸</div><h3>תמונות לאישור</h3><p class="small muted">UGC ממתין</p>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>🔔 צריך תשומת לב</h2>
+    <div id="attention"><div class="muted small">טוען...</div></div>
+  </div>
+
+  <div class="card">
+    <h2>📅 השבוע</h2>
+    <div id="week"><div class="muted small">טוען...</div></div>
+  </div>
+
+  <div class="card" style="background:var(--surface-2)">
+    <h2>📚 מחקר מקומי</h2>
+    <p class="small" id="research-line">טוען...</p>
+    <a class="btn ghost sm" href="local-research.html">הוסף פוסט מצליח</a>
+  </div>
+</div>
+
+<script src="/site.config.js"></script>
+<script src="marketing-common.js"></script>
+<script>
+renderNav("marketing-dashboard.html");
+
+function startOfWeek() { const d = new Date(); d.setHours(0,0,0,0); d.setDate(d.getDate() - d.getDay()); return d.getTime(); }
+
+async function init() {
+  const [posts, ugc, research] = await Promise.all([
+    fbList("marketingPosts").catch(() => []),
+    fbList("ugcSubmissions").catch(() => []),
+    fbList("localResearch").catch(() => [])
+  ]);
+
+  const weekStart = startOfWeek();
+  const postsThisWeek = posts.filter(p => (p.createdAt || 0) >= weekStart).length;
+  const pendingUgc = ugc.filter(u => u.status === "pending");
+  const drafts = posts.filter(p => p.status === "draft");
+  const researchThisWeek = research.filter(r => (r.addedAt || 0) >= weekStart).length;
+
+  document.getElementById("kpis").innerHTML = `
+    ${kpi("📝", postsThisWeek, "פוסטים השבוע")}
+    ${kpi("📸", pendingUgc.length, "UGC ממתין")}
+    ${kpi("📋", drafts.length, "טיוטות")}
+    ${kpi("📚", researchThisWeek, "מחקר השבוע")}`;
+
+  let att = "";
+  if (pendingUgc.length) att += `<div class="day-row"><span>📸 ${pendingUgc.length} תמונות ממתינות לאישור</span><a class="btn sm" href="ugc-review.html">לאישור</a></div>`;
+  if (drafts.length) att += `<div class="day-row"><span>📝 ${drafts.length} טיוטות שלא תוזמנו</span><a class="btn sm ghost" href="calendar.html">ללוח</a></div>`;
+  document.getElementById("attention").innerHTML = att || '<div class="muted small">הכל מסודר ✔</div>';
+
+  const scheduled = posts.filter(p => p.scheduledFor).sort((a, b) => new Date(a.scheduledFor) - new Date(b.scheduledFor)).slice(0, 7);
+  document.getElementById("week").innerHTML = scheduled.length
+    ? scheduled.map(p => `<div class="day-row"><span>${escapeHtml(((p.content && p.content.text) || "").slice(0, 60))}...</span>
+        <span class="badge ${p.status === "published" ? "ok" : "warn"}">${escapeHtml(p.scheduledFor || "")} ${escapeHtml(p.time || "")}</span></div>`).join("")
+    : '<div class="muted small">אין פוסטים מתוזמנים. <a href="content-workspace.html">צור אחד</a>.</div>';
+
+  document.getElementById("research-line").textContent =
+    researchThisWeek >= 2
+      ? `מצוין — הוספת ${researchThisWeek} פוסטים השבוע. המשך כך.`
+      : `הוספת ${researchThisWeek} פוסטים השבוע — תוסיף עוד 1-2 כדי שהפרומפטים ילמדו את הסגנון המקומי שלך.`;
+}
+
+function kpi(icon, num, lbl) { return `<div class="kpi"><div class="num">${icon} ${num}</div><div class="lbl">${lbl}</div></div>`; }
+
+requireAuth(init);
+</script>
+</body>
+</html>

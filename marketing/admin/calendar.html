@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>לוח שנה שיווקי · הדיינר</title>
+  <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="marketing.css">
+</head>
+<body>
+<div id="nav"></div>
+<div class="mkt-wrap">
+  <h1>📅 לוח שנה שיווקי</h1>
+  <p class="muted small">התזמון עצמו נעשה ידנית ב-Meta Business Suite. כאן עוקבים אחרי המצב: טיוטה → מתוזמן → פורסם.</p>
+
+  <h2>📝 טיוטות</h2>
+  <div id="drafts"><div class="muted small">טוען...</div></div>
+
+  <h2>🗓️ מתוזמנים</h2>
+  <div id="scheduled"><div class="muted small">טוען...</div></div>
+
+  <h2>✅ פורסמו לאחרונה</h2>
+  <div id="published"><div class="muted small">טוען...</div></div>
+</div>
+
+<script src="/site.config.js"></script>
+<script src="marketing-common.js"></script>
+<script>
+renderNav("calendar.html");
+let posts = [];
+
+async function init() { await load(); }
+
+async function load() {
+  try { posts = (await api("marketing-schedule", null, "GET")).items || []; }
+  catch (e) { toast(e.message); posts = []; }
+  render();
+}
+
+function postText(p) { return (p.content && (p.content.copy_paste_version || p.content.text)) || ""; }
+
+function card(p, kind) {
+  const div = document.createElement("div"); div.className = "card";
+  const text = postText(p);
+  div.innerHTML = `<div style="white-space:pre-wrap;">${escapeHtml((p.content && p.content.text || "").slice(0, 200))}</div>
+    <div class="small muted">${p.platform || "both"} · נוצר ${fmtDate(p.createdAt)} ${p.scheduledFor ? "· מתוזמן ל-" + escapeHtml(p.scheduledFor) + " " + escapeHtml(p.time || "") : ""}</div>`;
+
+  const row = document.createElement("div"); row.className = "btn-row";
+  const copyBtn = document.createElement("button"); copyBtn.className = "btn sm"; copyBtn.textContent = "📋 העתק";
+  copyBtn.addEventListener("click", () => copyText(text)); row.appendChild(copyBtn);
+
+  if (kind === "draft") {
+    const date = document.createElement("input"); date.type = "date"; date.style.width = "150px";
+    const time = document.createElement("input"); time.type = "time"; time.style.width = "110px";
+    const schedBtn = document.createElement("button"); schedBtn.className = "btn sm ghost"; schedBtn.textContent = "🗓️ תזמן";
+    schedBtn.addEventListener("click", async () => {
+      try {
+        await api("marketing-schedule", { action: "update", id: p.id, status: "scheduled", scheduledFor: date.value || null, time: time.value || null });
+        toast("תוזמן ✔"); await load();
+      } catch (e) { toast(e.message); }
+    });
+    row.appendChild(date); row.appendChild(time); row.appendChild(schedBtn);
+  }
+  if (kind === "draft" || kind === "scheduled") {
+    const pubBtn = document.createElement("button"); pubBtn.className = "btn sm"; pubBtn.textContent = "✅ סמן כפורסם";
+    pubBtn.addEventListener("click", async () => {
+      try { await api("marketing-schedule", { action: "setStatus", id: p.id, status: "published" }); toast("סומן כפורסם ✔"); await load(); }
+      catch (e) { toast(e.message); }
+    });
+    row.appendChild(pubBtn);
+  }
+  if (kind === "published") {
+    const aBtn = document.createElement("button"); aBtn.className = "btn sm ghost"; aBtn.textContent = "📊 הזן ביצועים";
+    aBtn.addEventListener("click", () => location.href = "analytics.html");
+    row.appendChild(aBtn);
+  }
+  const del = document.createElement("button"); del.className = "btn sm danger"; del.textContent = "🗑";
+  del.addEventListener("click", async () => {
+    if (!confirm("למחוק את הפוסט?")) return;
+    try { await api("marketing-schedule", { action: "delete", id: p.id }); await load(); } catch (e) { toast(e.message); }
+  });
+  row.appendChild(del);
+  div.appendChild(row);
+  return div;
+}
+
+function render() {
+  const groups = { drafts: "draft", scheduled: "scheduled", published: "published" };
+  Object.entries(groups).forEach(([host, status]) => {
+    let list = posts.filter(p => p.status === status);
+    if (status === "published") list = list.sort((a, b) => (b.publishedAt || 0) - (a.publishedAt || 0)).slice(0, 10);
+    const el = document.getElementById(host);
+    el.innerHTML = "";
+    if (!list.length) { el.innerHTML = '<div class="muted small">אין</div>'; return; }
+    list.forEach(p => el.appendChild(card(p, status)));
+  });
+}
+
+requireAuth(init);
+</script>
+</body>
+</html>

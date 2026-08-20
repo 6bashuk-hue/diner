@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>סדנת תוכן · הדיינר</title>
+  <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="marketing.css">
+  <style>
+    .step-num { display:inline-flex; width:28px; height:28px; border-radius:50%; background:var(--primary); color:#fff; align-items:center; justify-content:center; font-weight:800; margin-inline-end:0.5rem; }
+    .warn-box { background:var(--warn-bg); color:var(--warn); border-radius:10px; padding:0.7rem; margin-top:0.6rem; font-size:0.9rem; }
+  </style>
+</head>
+<body>
+<div id="nav"></div>
+<div class="mkt-wrap">
+  <h1>💬 סדנת תוכן — יוצרים פוסט חדש</h1>
+  <p class="muted small">אנחנו מכינים לך פרומפט מלא עם כל הידע על העסק והאזור שלך → אתה מעתיק לצ'אט שלך ב-Claude → חוזר עם הפוסט ושומר. בלי עלויות API.</p>
+
+  <div class="card">
+    <h2><span class="step-num">1</span> מה לכתוב?</h2>
+    <label for="topic">נושא *</label>
+    <input id="topic" placeholder="מנה חדשה בתפריט, מבצע שישי, סיפור מקומי...">
+    <div class="grid cols-2">
+      <div>
+        <label for="goal">מטרה</label>
+        <select id="goal">
+          <option value="מכירה">מכירה — המרת הזמנות</option>
+          <option value="קהילה">קהילה — חיזוק הקשר</option>
+          <option value="מודעות">מודעות — להגיע לחדשים</option>
+          <option value="חזרה">חזרה — להזכיר ללקוחות</option>
+        </select>
+      </div>
+      <div>
+        <label for="tone">טון</label>
+        <select id="tone">
+          <option>חם וביתי</option>
+          <option>כיפי וחצוף</option>
+          <option>אסתטי ושקט</option>
+          <option>מקומי</option>
+        </select>
+      </div>
+    </div>
+    <label for="context">הקשר נוסף (לא חובה)</label>
+    <textarea id="context" rows="2" placeholder="כל פרט שיעזור..."></textarea>
+    <label for="ugc">לצרף תמונת לקוח (UGC)?</label>
+    <select id="ugc"><option value="">לא, פוסט רגיל</option></select>
+  </div>
+
+  <div class="card">
+    <h2><span class="step-num">2</span> צור פרומפט מוכן ל-Claude</h2>
+    <div class="btn-row">
+      <button class="btn" id="gen-btn">🎨 צור פרומפט</button>
+    </div>
+    <div id="prompt-result" style="display:none;">
+      <div class="copy-box" id="prompt-box"></div>
+      <div class="btn-row">
+        <button class="btn" id="copy-open">📋 העתק ופתח Claude</button>
+        <button class="btn ghost" id="copy-only">העתק בלבד</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2><span class="step-num">3</span> הדבק את התוצאה ושמור</h2>
+    <label for="post-text">טקסט הפוסט שקיבלת מ-Claude</label>
+    <textarea id="post-text" rows="6" placeholder="הדבק כאן את הפוסט המלא (טקסט + hashtags)..."></textarea>
+    <div id="post-warn"></div>
+    <label for="sched">תאריך מתוכנן (לא חובה)</label>
+    <input type="date" id="sched">
+    <div class="btn-row">
+      <button class="btn" id="save-btn">💾 שמור לטיוטות</button>
+      <button class="btn ghost" id="save-copy-btn">💾 שמור + העתק להעלאה</button>
+    </div>
+    <div id="save-msg"></div>
+  </div>
+
+  <div class="card" style="background:var(--surface-2)">
+    <h2><span class="step-num">4</span> פרסם ב-Business Suite</h2>
+    <p class="small">אחרי שהפוסט שמור — העלה אותו ידנית, ואז חזור ללוח השנה וסמן "פורסם".</p>
+    <div class="btn-row">
+      <a class="btn ghost" href="https://business.facebook.com" target="_blank" rel="noopener">פתח Business Suite ↗</a>
+      <a class="btn ghost" href="calendar.html">ללוח השנה</a>
+    </div>
+  </div>
+</div>
+
+<script src="/site.config.js"></script>
+<script src="prompt-fragments.js"></script>
+<script src="marketing-common.js"></script>
+<script>
+renderNav("content-workspace.html");
+let brand = null, local = null, research = [];
+let currentPrompt = "";
+
+async function init() {
+  // prefill from dashboard / consultant
+  try {
+    const pre = sessionStorage.getItem("prefillContent");
+    if (pre) {
+      const d = JSON.parse(pre);
+      if (d.topic) document.getElementById("topic").value = d.topic;
+      if (d.context) document.getElementById("context").value = d.context;
+      if (d.goal && [...document.getElementById("goal").options].some(o => o.value === d.goal)) document.getElementById("goal").value = d.goal;
+      sessionStorage.removeItem("prefillContent");
+    }
+  } catch {}
+
+  try {
+    const k = await api("get-knowledge", null, "GET");
+    brand = k.brand; local = k.local;
+  } catch (e) { toast(e.message); }
+  try { research = (await api("list-research", null, "GET")).items || []; } catch {}
+  try {
+    const assets = (await api("list-assets?source=ugc", null, "GET")).items || [];
+    const sel = document.getElementById("ugc");
+    assets.forEach(a => {
+      const o = document.createElement("option");
+      o.value = a.id; o.textContent = "📸 " + (a.customerName || "לקוח") + " · " + fmtDate(a.createdAt);
+      sel.appendChild(o);
+    });
+  } catch {}
+
+  document.getElementById("gen-btn").addEventListener("click", buildPrompt);
+  document.getElementById("copy-open").addEventListener("click", () => { copyText(currentPrompt); window.open("https://claude.ai/new", "_blank", "noopener"); });
+  document.getElementById("copy-only").addEventListener("click", () => copyText(currentPrompt));
+  document.getElementById("save-btn").addEventListener("click", () => savePost(false));
+  document.getElementById("save-copy-btn").addEventListener("click", () => savePost(true));
+  document.getElementById("post-text").addEventListener("input", checkPost);
+}
+
+function buildPrompt() {
+  const topic = document.getElementById("topic").value.trim();
+  if (!topic) { toast("צריך נושא"); return; }
+  if (!brand || !local) { toast("הידע עוד נטען, נסה שוב בעוד רגע"); return; }
+  const goal = document.getElementById("goal").value;
+  const tone = document.getElementById("tone").value;
+  const context = document.getElementById("context").value.trim();
+  const ugc = document.getElementById("ugc").value;
+  const dayNames = ["ראשון","שני","שלישי","רביעי","חמישי","שישי","שבת"];
+  const dayName = dayNames[new Date().getDay()];
+
+  currentPrompt = `${PromptFragments.buildBrandHeader(brand, "owner-request")}
+
+## על המותג
+${brand.story}
+
+## הקהל שלי
+- אמצע שבוע: ${brand.audience.weekdays.join(", ")}
+- סופ"שים: ${brand.audience.weekends.join(", ")}
+${PromptFragments.buildSensitiveTopicBlock(brand)}
+## על ${brand.location}
+${local.history.foundingSpirit}
+${local.history.historicalSite.narrative}
+המתחרה הוותיק: ${local.competitiveLandscape.pizzaPlaces.join(", ")}
+
+ערכי הקהל ב${brand.location}:
+${local.localCulture.valueDrivers.map(v => "- " + v).join("\n")}
+
+## הקשר ספציפי לפוסט
+- נושא: ${topic}
+- מטרה: ${goal}
+- טון מבוקש: ${tone}
+- היום: יום ${dayName}
+${context ? "- הקשר נוסף: " + context : ""}
+${ugc ? "- כולל תמונת לקוח (UGC) - תייג את הלקוח" : ""}
+
+## פוסטים מצליחים שראיתי בקבוצות ${brand.location} (ללמוד מהסגנון)
+${research.length ? research.slice(0, 5).map((r, i) =>
+  `${i + 1}. עסק "${r.businessName}" (${r.category || ""}):
+${(r.postText || "").substring(0, 200)}
+${r.userAnalysis ? "למה עבד: " + r.userAnalysis : ""}`).join("\n\n") : "(עוד אין פוסטים במאגר - תוסיף לאורך זמן)"}
+
+## כללי כתיבה
+- עברית מדוברת, חמה, אישית
+- 2-3 אימוג'ים מקסימום
+- משפטים קצרים
+- כל פוסט מסתיים ב-CTA ספציפי
+- 3-5 hashtags רלוונטיים (כולל לפחות אחד מקומי, למשל #${brand.location})
+
+אסור: ${brand.forbidden.phrases.join(", ")}; להישמע מתחנף או מוגזם.
+
+## הפלט שאני רוצה
+3 וריאציות אסטרטגיות שונות (לא רק שינויי ניסוח). לכל אחת:
+1. הטקסט המלא של הפוסט
+2. Hashtags מתאימים
+3. סוג תמונה מומלץ
+4. שעה מומלצת לפרסום
+5. למה זה יעבוד (2-3 משפטים)
+
+בנוסף - אחרי 3 הוריאציות: מה לעשות אם לא תופס תוך שעתיים, ורעיון לפוסט המשך תוך 3-7 ימים.`;
+
+  document.getElementById("prompt-box").textContent = currentPrompt;
+  document.getElementById("prompt-result").style.display = "block";
+}
+
+// Client-side guardrail: warn about forbidden phrases / sensitive terms in the pasted
+// post. sensitiveTerms is opt-in (empty by default) — see BRAND_CONFIG.forbidden in
+// marketing/lib/brand-config.js.
+function postIssues(text) {
+  const issues = [];
+  const forbidden = brand ? brand.forbidden : { phrases: [], sensitiveTerms: [], sensitiveTermsLabel: "" };
+  (forbidden.phrases || []).forEach(p => { if (text.includes(p)) issues.push(`ביטוי אסור: "${p}"`); });
+  const label = forbidden.sensitiveTermsLabel || "נושא רגיש";
+  (forbidden.sensitiveTerms || []).forEach(t => { if (text.includes(t)) issues.push(`מזכיר ${label}: "${t}" — לא לשיווק`); });
+  return issues;
+}
+
+function checkPost() {
+  const issues = postIssues(document.getElementById("post-text").value);
+  document.getElementById("post-warn").innerHTML = issues.length
+    ? `<div class="warn-box">⚠ שים לב:<ul class="issues" style="margin-top:0.3rem;">${issues.map(i => "<li>" + escapeHtml(i) + "</li>").join("")}</ul></div>` : "";
+}
+
+function extractHashtags(text) { return text.match(/#[֐-׿\w]+/g) || []; }
+
+async function savePost(thenCopy) {
+  const text = document.getElementById("post-text").value.trim();
+  if (!text) { toast("הדבק את הפוסט קודם"); return; }
+  const issues = postIssues(text);
+  if (issues.length && !confirm("יש אזהרות בפוסט (נושא רגיש/ביטוי אסור). לשמור בכל זאת?")) return;
+
+  const sched = document.getElementById("sched").value;
+  const postData = {
+    content: { text, hashtags: extractHashtags(text), copyPasteVersion: text },
+    metadata: { topic: document.getElementById("topic").value.trim(), goal: document.getElementById("goal").value, createdManually: true, createdAt: Date.now() },
+    status: sched ? "scheduled" : "draft",
+    scheduledFor: sched || null
+  };
+
+  const btn = document.getElementById(thenCopy ? "save-copy-btn" : "save-btn");
+  btn.disabled = true;
+  try {
+    await api("marketing-schedule", { action: "save", postData });
+    document.getElementById("save-msg").innerHTML = '<div class="card" style="background:var(--ok-bg);color:var(--ok);margin-top:0.6rem;">✅ נשמר ללוח השנה' + (thenCopy ? " + הועתק" : "") + "</div>";
+    if (thenCopy) copyText(text);
+    document.getElementById("post-text").value = ""; checkPost();
+  } catch (e) { toast(e.message); }
+  finally { btn.disabled = false; }
+}
+
+requireAuth(init);
+</script>
+</body>
+</html>

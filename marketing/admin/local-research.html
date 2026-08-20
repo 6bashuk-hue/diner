@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>מחקר מקומי · הדיינר</title>
+  <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="marketing.css">
+</head>
+<body>
+<div id="nav"></div>
+<div class="mkt-wrap">
+  <h1>📚 מחקר מקומי — פוסטים מצליחים מהאזור שלי</h1>
+  <div class="card" style="background:var(--surface-2)">
+    <p class="small">💡 הוסף 1-2 פוסטים בשבוע שראית מצליחים בקבוצות מקומיות. הם נשמרים כאן ומוזנים אוטומטית לפרומפט שאתה מעתיק ל-Claude — כך הסגנון המקומי נכנס לפוסטים שלך.</p>
+  </div>
+
+  <div class="card">
+    <label for="businessName">שם העסק / המפרסם *</label>
+    <input id="businessName">
+
+    <label for="postText">טקסט הפוסט המלא *</label>
+    <textarea id="postText" rows="5"></textarea>
+
+    <label for="category">קטגוריה</label>
+    <select id="category">
+      <option>פתיחה / השקה</option>
+      <option>מבצע / הנחה</option>
+      <option>קהילה / סיפור</option>
+      <option>UGC / תמונת לקוח</option>
+      <option>אירוע</option>
+      <option>חידה / משחק</option>
+      <option>אחר</option>
+    </select>
+
+    <label>Engagement משוער</label>
+    <div class="grid cols-3">
+      <input type="number" id="likes" placeholder="לייקים">
+      <input type="number" id="comments" placeholder="תגובות">
+      <input type="number" id="shares" placeholder="שיתופים">
+    </div>
+
+    <label for="analysis">למה זה עבד? (הניתוח שלך)</label>
+    <textarea id="analysis" rows="3" placeholder="מה משך תשומת לב? איזה רגש זה עורר?"></textarea>
+
+    <div class="btn-row">
+      <button class="btn" id="add-btn">💾 הוסף למאגר</button>
+    </div>
+  </div>
+
+  <h2>פוסטים במאגר</h2>
+  <div id="posts"><div class="muted small">טוען...</div></div>
+</div>
+
+<script src="/site.config.js"></script>
+<script src="marketing-common.js"></script>
+<script>
+renderNav("local-research.html");
+
+async function init() {
+  document.getElementById("add-btn").addEventListener("click", add);
+  await loadPosts();
+}
+
+async function add() {
+  const businessName = document.getElementById("businessName").value.trim();
+  const postText = document.getElementById("postText").value.trim();
+  if (!businessName || !postText) { toast("צריך שם עסק וטקסט"); return; }
+  const btn = document.getElementById("add-btn");
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> שומר...';
+  try {
+    await api("local-research-add", {
+      businessName, postText,
+      category: document.getElementById("category").value,
+      engagement: {
+        likes: Number(document.getElementById("likes").value) || 0,
+        comments: Number(document.getElementById("comments").value) || 0,
+        shares: Number(document.getElementById("shares").value) || 0
+      },
+      userAnalysis: document.getElementById("analysis").value
+    });
+    toast("נוסף למאגר ✔");
+    ["businessName","postText","likes","comments","shares","analysis"].forEach(id => document.getElementById(id).value = "");
+    await loadPosts();
+  } catch (e) { toast(e.message); }
+  finally { btn.disabled = false; btn.textContent = "💾 הוסף למאגר"; }
+}
+
+async function loadPosts() {
+  let rows = [];
+  try { rows = (await api("list-research", null, "GET")).items || []; }
+  catch { try { rows = await fbList("localResearch"); } catch {} }
+  rows.sort((a, b) => (b.addedAt || 0) - (a.addedAt || 0));
+  const host = document.getElementById("posts");
+  if (!rows.length) { host.innerHTML = '<div class="empty">עדיין אין פוסטים. הוסף את הראשון!</div>'; return; }
+  host.innerHTML = "";
+  rows.forEach(r => {
+    const e = r.engagement || {};
+    const card = document.createElement("div"); card.className = "card";
+    card.innerHTML = `
+      <div style="display:flex;justify-content:space-between;">
+        <strong>${escapeHtml(r.businessName)}</strong>
+        <span class="badge muted">${escapeHtml(r.category || "")}</span>
+      </div>
+      <div class="small" style="white-space:pre-wrap;margin:0.4rem 0;color:var(--muted);">${escapeHtml((r.postText || "").slice(0, 280))}</div>
+      <div class="small muted">❤ ${e.likes || 0} · 💬 ${e.comments || 0} · 🔁 ${e.shares || 0} · ${fmtDate(r.addedAt)}</div>
+      ${r.userAnalysis ? `<div class="small" style="margin-top:0.4rem;"><strong>למה זה עבד:</strong> ${escapeHtml(r.userAnalysis)}</div>` : ""}
+    `;
+    const row = document.createElement("div"); row.className = "btn-row";
+    const del = document.createElement("button"); del.className = "btn sm danger"; del.textContent = "🗑 מחק";
+    del.addEventListener("click", async () => {
+      if (!confirm("למחוק את הפוסט מהמאגר?")) return;
+      try { await fbSet("localResearch/" + r.id, null); await loadPosts(); } catch (err) { toast(err.message); }
+    });
+    row.appendChild(del); card.appendChild(row);
+    host.appendChild(card);
+  });
+}
+
+requireAuth(init);
+</script>
+</body>
+</html>

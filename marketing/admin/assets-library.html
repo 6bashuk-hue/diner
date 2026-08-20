@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>מאגר נכסים · הדיינר</title>
+  <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="marketing.css">
+</head>
+<body>
+<div id="nav"></div>
+<div class="mkt-wrap">
+  <h1>🖼️ מאגר נכסים</h1>
+  <p class="muted small">תמונות לקוחות שאושרו ונכסים שמורים. אפשר להוריד או לבנות פוסט סביב כל אחד.</p>
+  <div class="grid cols-3" id="list"><div class="muted small">טוען...</div></div>
+</div>
+
+<script src="/site.config.js"></script>
+<script src="marketing-common.js"></script>
+<script>
+renderNav("assets-library.html");
+
+async function init() {
+  let assets = [];
+  try { assets = await fbList("marketingAssets"); } catch (e) { toast(e.message); }
+  assets.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+  const host = document.getElementById("list");
+  if (!assets.length) { host.innerHTML = '<div class="empty">אין נכסים עדיין. תמונות UGC שתאשר יופיעו כאן.</div>'; return; }
+  host.innerHTML = "";
+  assets.forEach(a => {
+    const card = document.createElement("div"); card.className = "card";
+    card.innerHTML = `<img class="thumb" src="${a.imageData}" alt="asset">
+      <div style="margin-top:0.5rem;"><strong>${escapeHtml(a.customerName || "נכס")}</strong>
+      ${a.customerHandle ? `<span class="small muted">@${escapeHtml(a.customerHandle)}</span>` : ""}</div>
+      <div class="small muted">${a.type === "ugc" ? "תמונת לקוח" : "נכס"} · ${fmtDate(a.createdAt)} ${a.consentTag ? "· אישר תיוג" : ""}</div>`;
+    const row = document.createElement("div"); row.className = "btn-row";
+    const dl = document.createElement("a"); dl.className = "btn sm ghost"; dl.textContent = "⬇️ הורד";
+    dl.href = a.imageData; dl.download = "ugc-" + (a.customerName || "asset") + ".jpg"; row.appendChild(dl);
+    const use = document.createElement("button"); use.className = "btn sm"; use.textContent = "✍️ צור פוסט";
+    use.addEventListener("click", () => {
+      sessionStorage.setItem("prefillContent", JSON.stringify({ topic: "פוסט עם תמונת לקוח של " + (a.customerName || "") }));
+      location.href = "content-workspace.html";
+    });
+    row.appendChild(use); card.appendChild(row);
+    host.appendChild(card);
+  });
+}
+
+requireAuth(init);
+</script>
+</body>
+</html>

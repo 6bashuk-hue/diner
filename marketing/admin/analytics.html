@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ביצועים · הדיינר</title>
+  <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="marketing.css">
+</head>
+<body>
+<div id="nav"></div>
+<div class="mkt-wrap">
+  <h1>📊 ביצועים</h1>
+  <p class="muted small">הזן ידנית את המספרים מ-Meta Business Suite. המשווק לומד מה עבד ומשפר את ההמלצות.</p>
+
+  <div class="grid cols-4" id="totals"></div>
+
+  <h2>פוסטים שפורסמו</h2>
+  <div id="list"><div class="muted small">טוען...</div></div>
+</div>
+
+<script src="/site.config.js"></script>
+<script src="marketing-common.js"></script>
+<script>
+renderNav("analytics.html");
+let posts = [];
+const FIELDS = [["reach","תפוצה"],["likes","לייקים"],["comments","תגובות"],["shares","שיתופים"],["saves","שמירות"]];
+
+async function init() { await load(); }
+
+async function load() {
+  try { posts = ((await api("marketing-schedule", null, "GET")).items || []).filter(p => p.status === "published"); }
+  catch (e) { toast(e.message); posts = []; }
+  posts.sort((a, b) => (b.publishedAt || 0) - (a.publishedAt || 0));
+  renderTotals(); render();
+}
+
+function renderTotals() {
+  const sum = { reach: 0, likes: 0, comments: 0, shares: 0 };
+  posts.forEach(p => { const a = p.manualAnalytics || {}; Object.keys(sum).forEach(k => sum[k] += Number(a[k]) || 0); });
+  document.getElementById("totals").innerHTML = `
+    <div class="kpi"><div class="num">${posts.length}</div><div class="lbl">פוסטים</div></div>
+    <div class="kpi"><div class="num">${sum.reach.toLocaleString()}</div><div class="lbl">תפוצה כוללת</div></div>
+    <div class="kpi"><div class="num">${sum.likes.toLocaleString()}</div><div class="lbl">לייקים</div></div>
+    <div class="kpi"><div class="num">${(sum.comments + sum.shares).toLocaleString()}</div><div class="lbl">תגובות+שיתופים</div></div>`;
+}
+
+function render() {
+  const host = document.getElementById("list");
+  if (!posts.length) { host.innerHTML = '<div class="empty">אין פוסטים שפורסמו עדיין</div>'; return; }
+  host.innerHTML = "";
+  posts.forEach(p => {
+    const a = p.manualAnalytics || {};
+    const card = document.createElement("div"); card.className = "card";
+    card.innerHTML = `<div style="white-space:pre-wrap;">${escapeHtml((p.content && p.content.text || "").slice(0, 160))}</div>
+      <div class="small muted">פורסם ${fmtDate(p.publishedAt)}</div>`;
+    const grid = document.createElement("div"); grid.className = "grid cols-3"; grid.style.marginTop = "0.6rem";
+    FIELDS.forEach(([key, label]) => {
+      const wrap = document.createElement("div");
+      wrap.innerHTML = `<label>${label}</label>`;
+      const inp = document.createElement("input"); inp.type = "number"; inp.value = a[key] != null ? a[key] : "";
+      inp.dataset.key = key; wrap.appendChild(inp); grid.appendChild(wrap);
+    });
+    card.appendChild(grid);
+    const row = document.createElement("div"); row.className = "btn-row";
+    const save = document.createElement("button"); save.className = "btn sm"; save.textContent = "💾 שמור מספרים";
+    save.addEventListener("click", async () => {
+      const analytics = {};
+      grid.querySelectorAll("input").forEach(i => { if (i.value !== "") analytics[i.dataset.key] = Number(i.value) || 0; });
+      try { await api("marketing-schedule", { action: "setAnalytics", id: p.id, analytics }); toast("נשמר ✔"); renderTotals(); }
+      catch (e) { toast(e.message); }
+    });
+    row.appendChild(save); card.appendChild(row);
+    host.appendChild(card);
+  });
+}
+
+requireAuth(init);
+</script>
+</body>
+</html>

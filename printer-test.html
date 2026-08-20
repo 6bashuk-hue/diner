@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate">
+<meta name="robots" content="noindex, nofollow">
+<title>בדיקת מדפסת USB — הדיינר</title>
+<style>
+  body { font-family: -apple-system, "Heebo", Arial, sans-serif; background:#0a0a0a; color:#eee; margin:0; padding:16px; }
+  h1 { font-size:1.2rem; color:#c96a30; }
+  button { display:block; width:100%; padding:16px; margin:8px 0; font-size:18px; font-weight:bold;
+           border:none; border-radius:10px; background:#c96a30; color:#fff; cursor:pointer; }
+  button.alt { background:#1a3a5a; }
+  pre { white-space:pre-wrap; word-break:break-word; background:#141414; border:1px solid #333;
+        border-radius:10px; padding:12px; font-size:13px; line-height:1.5; min-height:200px; }
+  .ok { color:#22c55e; } .err { color:#ef4444; } .hi { color:#fbbf24; }
+</style>
+</head>
+<body>
+<h1>🖨 בדיקת מדפסת USB (WebUSB)</h1>
+<p style="font-size:14px;color:#aaa;">פתח את הדף ב-Chrome אנדרואיד, חבר את המדפסת ב-USB, ולחץ. הכל יוצג כאן למטה — צלם ושלח.</p>
+<button onclick="inspect()">🔌 בחר מדפסת + הצג מבנה</button>
+<button class="alt" onclick="testPrint()">🧾 נסה הדפסת בדיקה (ASCII)</button>
+<pre id="out">מוכן.
+</pre>
+<script>
+let DEV = null, EP = null, IFACE = null;
+const out = document.getElementById("out");
+function log(s, cls) { out.innerHTML += (cls ? '<span class="'+cls+'">'+s+'</span>' : s) + "\n"; }
+function hex(n){ return "0x"+Number(n||0).toString(16).padStart(4,"0"); }
+
+async function pick() {
+  if (!("usb" in navigator)) { log("❌ הדפדפן לא תומך ב-WebUSB (צריך Chrome/Edge אנדרואיד).", "err"); return null; }
+  const dev = await navigator.usb.requestDevice({ filters: [] });
+  return dev;
+}
+
+async function inspect() {
+  out.textContent = "";
+  try {
+    const dev = await pick(); if (!dev) return;
+    log("מכשיר נבחר:", "hi");
+    log("  שם: " + (dev.productName || "?") + " · יצרן: " + (dev.manufacturerName || "?"));
+    log("  VID " + hex(dev.vendorId) + "  PID " + hex(dev.productId));
+    await dev.open(); log("open() הצליח ✓", "ok");
+    if (!dev.configuration) { try { await dev.selectConfiguration(1); log("selectConfiguration(1) ✓"); } catch(e){ log("selectConfiguration נכשל: "+e.name+" — "+e.message, "err"); } }
+    const cfgs = dev.configurations || [];
+    log("מספר configurations: " + cfgs.length);
+    let foundOut = null;
+    for (const cfg of cfgs) {
+      log("• config value " + cfg.configurationValue + " — " + cfg.interfaces.length + " ממשקים:");
+      for (const iface of cfg.interfaces) {
+        for (const alt of iface.alternates) {
+          const eps = alt.endpoints.map(e => e.direction + "/" + e.type + "#" + e.endpointNumber).join(", ");
+          const bulkOut = alt.endpoints.find(e => e.direction === "out" && e.type === "bulk");
+          log("   if#" + iface.interfaceNumber + " alt" + alt.alternateSetting +
+              " class=" + alt.interfaceClass + " sub=" + alt.interfaceSubclass + " proto=" + alt.interfaceProtocol +
+              "  [" + (eps || "אין endpoints") + "]" + (bulkOut ? "  ← יש bulk-OUT" : ""), bulkOut ? "ok" : "");
+          if (bulkOut && !foundOut) foundOut = { iface: iface.interfaceNumber, alt: alt.alternateSetting, ep: bulkOut.endpointNumber, cfg: cfg.configurationValue, cls: alt.interfaceClass };
+        }
+      }
+    }
+    if (!foundOut) { log("❌ לא נמצא endpoint מסוג bulk-OUT בכלל. (אם רשימת הממשקים ריקה — Chrome חוסם את המחלקה.)", "err"); return; }
+    log("נמצא ערוץ הדפסה: if#" + foundOut.iface + " ep#" + foundOut.ep + " (class " + foundOut.cls + "). מנסה לתפוס...", "hi");
+    try { if (dev.configuration.configurationValue !== foundOut.cfg) await dev.selectConfiguration(foundOut.cfg); } catch {}
+    try {
+      await dev.claimInterface(foundOut.iface);
+      if (foundOut.alt !== 0) { try { await dev.selectAlternateInterface(foundOut.iface, foundOut.alt); } catch {} }
+      DEV = dev; EP = foundOut.ep; IFACE = foundOut.iface;
+      log("✓ claimInterface הצליח! הערוץ מוכן. עכשיו אפשר ללחוץ 'נסה הדפסת בדיקה'.", "ok");
+    } catch (e) {
+      log("❌ claimInterface נכשל: " + e.name + " — " + e.message, "err");
+      log("(אם זה SecurityError/NotAllowedError על class 7 — Chrome חוסם מחלקת מדפסת.)");
+    }
+  } catch (e) {
+    if (e && e.name === "NotFoundError") log("בוטל (לא נבחרה מדפסת).");
+    else log("שגיאה: " + (e && e.name) + " — " + (e && e.message), "err");
+  }
+}
+
+async function testPrint() {
+  if (!DEV || EP == null) { log("קודם לחץ '🔌 בחר מדפסת + הצג מבנה' עד שמופיע ✓.", "err"); return; }
+  try {
+    const enc = new TextEncoder();
+    const text = "\x1B\x40" + "WebUSB test OK\n6 BASHUK\n" + new Date().toLocaleTimeString() + "\n\n\n" ;
+    const cut = new Uint8Array([0x1D,0x56,0x42,0x00]);
+    const payload = new Uint8Array([...enc.encode(text), ...cut]);
+    const r = await DEV.transferOut(EP, payload);
+    log("transferOut status: " + r.status + " (נשלחו " + r.bytesWritten + " בייט). בדוק אם יצאה קבלה.", r.status === "ok" ? "ok" : "err");
+  } catch (e) {
+    log("❌ הדפסה נכשלה: " + (e && e.name) + " — " + (e && e.message), "err");
+  }
+}
+</script>
+</body>
+</html>

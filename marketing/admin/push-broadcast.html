@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>שליחת התראות · הדיינר</title>
+  <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="marketing.css">
+  <style>
+    .fb-row { display:flex; justify-content:space-between; align-items:center; padding:0.5rem 0; border-bottom:1px solid var(--border); font-size:0.9rem; }
+    .fb-row a { color:#25D366; font-weight:700; text-decoration:none; }
+  </style>
+</head>
+<body>
+<div id="nav"></div>
+<div class="mkt-wrap">
+  <h1>📣 התראות ללקוחות</h1>
+  <p class="muted small">שולח Push לכל מי שאישר התראות. iOS Safari (בלי PWA) לא תומך — מי שלא קיבל יוצג כאן עם לינק WhatsApp לשליחה ידנית.</p>
+
+  <div class="card">
+    <label for="audience">קהל יעד</label>
+    <select id="audience">
+      <option value="all">כל המנויים</option>
+      <option value="vip">VIP בלבד</option>
+      <option value="inactive">לא הזמינו 30+ ימים</option>
+    </select>
+    <label for="title">כותרת</label>
+    <input id="title" placeholder="🍔 מבצע חדש!" maxlength="50">
+    <label for="body">תוכן</label>
+    <textarea id="body" rows="3" placeholder="צ'יפס חינם השבוע מעל ₪95 — עד חמישי." maxlength="200"></textarea>
+    <label for="url">לאן להוביל בלחיצה?</label>
+    <input id="url" value="/">
+    <label><input type="checkbox" id="waFallback" checked> צור לינקי WhatsApp ידניים למי שלא קיבל push</label>
+    <div class="btn-row">
+      <button class="btn" id="send-btn">📤 שלח</button>
+    </div>
+    <div id="result"></div>
+  </div>
+
+  <div class="card" id="fb-card" style="display:none;background:var(--surface-2);">
+    <h2>📲 WhatsApp ידני (<span id="fb-count">0</span>)</h2>
+    <p class="small">לחץ על כל שורה כדי לפתוח את WhatsApp עם הודעה ממולאת.</p>
+    <div id="fb-list"></div>
+  </div>
+</div>
+
+<script src="/site.config.js"></script>
+<script src="marketing-common.js"></script>
+<script>
+renderNav("push-broadcast.html");
+
+async function init() {
+  document.getElementById("send-btn").addEventListener("click", send);
+}
+
+async function send() {
+  const title = document.getElementById("title").value.trim();
+  const bodyTxt = document.getElementById("body").value.trim();
+  if (!title || !bodyTxt) { toast("צריך כותרת ותוכן"); return; }
+  const btn = document.getElementById("send-btn");
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> שולח...';
+  try {
+    const data = await api("push-broadcast", {
+      audience: document.getElementById("audience").value,
+      title, body: bodyTxt,
+      url: document.getElementById("url").value || "/",
+      waFallback: document.getElementById("waFallback").checked
+    });
+    document.getElementById("result").innerHTML =
+      '<div class="card" style="background:var(--ok-bg);color:var(--ok);margin-top:0.5rem;">' +
+      '✅ נשלחו ' + data.sent + ' התראות מתוך ' + data.total + ' לקוחות בקהל.' +
+      (data.fallbackCount ? ' ' + data.fallbackCount + ' צריכים WhatsApp ידני (למטה).' : '') + '</div>';
+    renderFallbacks(data.fallbacks || []);
+  } catch (e) { toast(e.message); }
+  finally { btn.disabled = false; btn.textContent = "📤 שלח"; }
+}
+
+function renderFallbacks(rows) {
+  const card = document.getElementById("fb-card");
+  const list = document.getElementById("fb-list");
+  document.getElementById("fb-count").textContent = rows.length;
+  if (!rows.length) { card.style.display = "none"; return; }
+  card.style.display = "block";
+  list.innerHTML = "";
+  rows.forEach(r => {
+    const d = document.createElement("div"); d.className = "fb-row";
+    d.innerHTML = '<span>' + escapeHtml(r.name || r.phone) + ' · ' + escapeHtml(r.phone) + '</span>' +
+                  '<a href="' + r.url + '" target="_blank" rel="noopener">פתח WhatsApp ↗</a>';
+    list.appendChild(d);
+  });
+}
+
+requireAuth(init);
+</script>
+</body>
+</html>

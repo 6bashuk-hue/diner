@@ -1,0 +1,1640 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>לוח ניהול — הדיינר</title>
+<meta name="robots" content="noindex, nofollow">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<!-- Kitchen Mode: admin PWA tags (separate manifest; does not touch the customer /manifest.json) -->
+<link rel="manifest" href="/admin-manifest.json">
+<meta name="theme-color" content="#0a0a0a">
+<meta name="apple-mobile-web-app-title" content="מטבח — הדיינר">
+<link rel="apple-touch-icon" href="/icon-192.png">
+<!-- End Kitchen Mode head -->
+<link href="https://fonts.googleapis.com/css2?family=Rubik:wght@300;400;700;900&display=swap" rel="stylesheet">
+<style>
+:root {
+    --primary:   #d21f24;
+    --primary-d: #a31419;
+    --bg:        #0a0a0a;
+    --surface:   #141414;
+    --surface2:  #1e1e1e;
+    --border:    #2a2a2a;
+    --text:      #f0f0f0;
+    --muted:     #888;
+    --success:   #22c55e;
+    --warning:   #f59e0b;
+    --danger:    #ef4444;
+    --wa:        #25D366;
+    --new-glow:  0 0 0 3px rgba(201,106,48,0.4), 0 8px 32px rgba(201,106,48,0.2);
+    --inprog-glow: 0 0 0 3px rgba(245,158,11,0.4), 0 8px 32px rgba(245,158,11,0.15);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; }
+body {
+    font-family: 'Rubik', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    overflow-x: hidden;
+}
+
+/* ─── LOGIN ─────────────────────────────── */
+#login-screen {
+    position: fixed; inset: 0; background: var(--bg);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 999; flex-direction: column; gap: 1.5rem;
+}
+.login-logo { font-size: 2rem; font-weight: 900; color: var(--primary); letter-spacing: 1px; }
+.login-box {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 16px; padding: 2rem; width: min(340px, 90vw);
+    display: flex; flex-direction: column; gap: 1rem;
+}
+.login-box h2 { font-size: 1.1rem; font-weight: 700; color: var(--muted); text-align: center; }
+.login-input {
+    padding: 0.9rem 1rem; border: 1px solid var(--border); border-radius: 10px;
+    background: var(--bg); color: var(--text); font-family: 'Rubik', sans-serif;
+    font-size: 1.1rem; text-align: center; width: 100%;
+    transition: border-color 0.2s;
+}
+.login-input:focus { outline: none; border-color: var(--primary); }
+.login-btn {
+    padding: 0.9rem; background: var(--primary); color: white;
+    border: none; border-radius: 10px; font-family: 'Rubik', sans-serif;
+    font-size: 1.1rem; font-weight: 700; cursor: pointer;
+    transition: background 0.2s;
+}
+.login-btn:hover { background: var(--primary-d); }
+.login-err { color: var(--danger); font-size: 0.9rem; text-align: center; display: none; }
+
+/* ─── MAIN LAYOUT ────────────────────────── */
+#app { display: none; flex-direction: column; min-height: 100vh; }
+
+/* ─── TOP BAR ────────────────────────────── */
+.topbar {
+    background: rgba(20,20,20,0.82); backdrop-filter: blur(20px) saturate(160%); -webkit-backdrop-filter: blur(20px) saturate(160%);
+    border-bottom: 1px solid var(--border);
+    padding: 0.8rem 1.2rem; display: flex; align-items: center;
+    justify-content: space-between; gap: 1rem; flex-wrap: wrap;
+    position: sticky; top: 0; z-index: 50;
+}
+.topbar-brand { font-size: 1.3rem; font-weight: 900; letter-spacing: -0.01em; color: var(--primary); }
+.topbar-clock { font-size: 0.95rem; color: var(--muted); font-weight: 300; }
+.topbar-actions { display: flex; gap: 0.6rem; align-items: center; flex-wrap: wrap; }
+
+/* ─── PREP-TIME CONTROLS ─────────────────── */
+.prep-btns { display: flex; gap: 0.5rem; }
+.prep-btn {
+    padding: 0.55rem 1rem; border-radius: 8px; border: none;
+    font-family: 'Rubik', sans-serif; font-size: 0.9rem; font-weight: 700;
+    cursor: pointer; transition: all 0.2s;
+}
+.prep-normal  { background: #1a3a1a; color: var(--success); border: 1px solid var(--success); }
+.prep-normal:hover  { background: var(--success); color: #000; }
+.prep-busy    { background: #3a2a0a; color: var(--warning); border: 1px solid var(--warning); }
+.prep-busy:hover    { background: var(--warning); color: #000; }
+.prep-active-normal { background: var(--success) !important; color: #000 !important; }
+.prep-active-busy   { background: var(--warning) !important; color: #000 !important; }
+
+.logout-btn {
+    padding: 0.5rem 0.9rem; background: transparent; color: var(--muted);
+    border: 1px solid var(--border); border-radius: 8px;
+    font-family: 'Rubik', sans-serif; font-size: 0.85rem; cursor: pointer;
+    transition: all 0.2s;
+}
+.logout-btn:hover { border-color: var(--danger); color: var(--danger); }
+
+/* ─── STATS BAR ──────────────────────────── */
+.stats-bar {
+    background: var(--surface2); border-bottom: 1px solid var(--border);
+    padding: 0.6rem 1.2rem; display: flex; gap: 2rem; flex-wrap: wrap;
+    align-items: center;
+}
+.stat { display: flex; flex-direction: column; align-items: center; }
+.stat-num { font-size: 1.4rem; font-weight: 900; letter-spacing: -0.01em; color: var(--primary); line-height: 1; }
+.stat-lbl { font-size: 0.72rem; color: var(--muted); }
+.stat-divider { width: 1px; height: 32px; background: var(--border); }
+
+/* ─── COLUMNS ────────────────────────────── */
+.columns-wrap {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0; flex: 1;
+    min-height: 0;
+}
+@media (max-width: 700px) {
+    .columns-wrap { grid-template-columns: 1fr; }
+}
+
+.col {
+    padding: 1rem; display: flex; flex-direction: column; gap: 0;
+    border-left: 1px solid var(--border);
+    min-height: calc(100vh - 110px);
+}
+.col:last-child { border-left: none; }
+
+.col-header {
+    font-size: 0.75rem; font-weight: 700; letter-spacing: 2px; text-transform: uppercase;
+    color: var(--muted); padding: 0 0 0.7rem 0; border-bottom: 1px solid var(--border);
+    margin-bottom: 0.8rem; display: flex; justify-content: space-between; align-items: center;
+}
+.col-count {
+    background: var(--border); color: var(--text); font-size: 0.72rem;
+    padding: 0.15rem 0.55rem; border-radius: 20px; font-weight: 700;
+}
+
+/* ─── ORDER CARD ─────────────────────────── */
+.order-card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+    padding: 1rem 1.1rem; margin-bottom: 0.8rem;
+    transition: transform 0.15s, box-shadow 0.15s;
+    animation: slideIn 0.3s ease;
+}
+.order-card.status-new      { box-shadow: var(--new-glow); border-color: var(--primary); }
+.order-card.status-inprog   { box-shadow: var(--inprog-glow); border-color: var(--warning); }
+.order-card:hover { transform: translateY(-1px); }
+
+@keyframes slideIn {
+    from { opacity: 0; transform: translateY(-12px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes pulse-new {
+    0%, 100% { box-shadow: var(--new-glow); }
+    50%       { box-shadow: 0 0 0 5px rgba(201,106,48,0.2), 0 12px 40px rgba(201,106,48,0.3); }
+}
+.order-card.status-new { animation: slideIn 0.3s ease, pulse-new 3s ease-in-out 0.5s infinite; }
+
+.card-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 0.5rem; margin-bottom: 0.7rem; }
+.card-name { font-size: 1.2rem; font-weight: 900; letter-spacing: -0.01em; color: var(--text); }
+.card-badges { display: flex; flex-direction: column; align-items: flex-end; gap: 0.3rem; }
+.badge {
+    font-size: 0.7rem; font-weight: 700; padding: 0.2rem 0.6rem;
+    border-radius: 20px; white-space: nowrap;
+}
+.badge-delivery { background: #1a3a5a; color: #60a5fa; }
+.badge-pickup   { background: #1a3a1a; color: #4ade80; }
+.badge-new      { background: rgba(201,106,48,0.2); color: var(--primary); }
+.badge-inprog   { background: rgba(245,158,11,0.2); color: var(--warning); }
+
+.card-phone { font-size: 0.85rem; color: var(--muted); margin-bottom: 0.6rem; }
+.card-address { font-size: 0.82rem; color: #60a5fa; margin-bottom: 0.5rem; }
+
+.card-items { margin-bottom: 0.8rem; }
+.card-item {
+    font-size: 1rem; font-weight: 700; color: var(--text);
+    padding: 0.3rem 0; border-bottom: 1px solid var(--border);
+    display: flex; flex-direction: column; gap: 0.1rem;
+}
+.card-item:last-child { border-bottom: none; }
+.card-item-extras { font-size: 0.78rem; color: var(--muted); font-weight: 400; }
+.card-item-notes  { font-size: 0.78rem; color: var(--warning); font-weight: 400; }
+
+.card-footer { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; flex-wrap: wrap; }
+.card-meta { display: flex; gap: 0.8rem; align-items: center; }
+.card-total { font-size: 1.2rem; font-weight: 900; color: var(--primary); }
+.card-time  { font-size: 0.8rem; color: var(--muted); }
+
+.card-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+
+.btn-taboon {
+    padding: 0.7rem 1.1rem; background: var(--primary); color: white;
+    border: none; border-radius: 10px; font-family: 'Rubik', sans-serif;
+    font-size: 0.95rem; font-weight: 700; cursor: pointer; transition: all 0.15s;
+    display: flex; align-items: center; gap: 0.4rem;
+    touch-action: manipulation;
+}
+.btn-taboon:hover { background: var(--primary-d); transform: scale(1.02); }
+
+.btn-done {
+    padding: 0.7rem 1rem; background: #1a3a1a; color: var(--success);
+    border: 1px solid var(--success); border-radius: 10px;
+    font-family: 'Rubik', sans-serif; font-size: 0.95rem; font-weight: 700;
+    cursor: pointer; transition: all 0.15s; touch-action: manipulation;
+}
+.btn-done:hover { background: var(--success); color: #000; }
+
+.btn-cancel {
+    padding: 0.7rem 0.8rem; background: transparent; color: var(--muted);
+    border: 1px solid var(--border); border-radius: 10px;
+    font-family: 'Rubik', sans-serif; font-size: 0.85rem; cursor: pointer;
+    touch-action: manipulation; transition: all 0.15s;
+}
+.btn-cancel:hover { border-color: var(--danger); color: var(--danger); }
+
+.btn-print {
+    padding: 0.7rem 0.9rem; background: transparent; color: #60a5fa;
+    border: 1px solid #1a3a5a; border-radius: 10px;
+    font-family: 'Rubik', sans-serif; font-size: 0.9rem; cursor: pointer;
+    touch-action: manipulation; transition: all 0.15s;
+}
+.btn-print:hover { background: #1a3a5a; color: #fff; }
+
+.autoprint-toggle {
+    padding: 0.5rem 0.8rem; background: transparent; color: var(--muted);
+    border: 1px solid var(--border); border-radius: 8px;
+    font-family: 'Rubik', sans-serif; font-size: 0.85rem; cursor: pointer;
+    transition: all 0.2s;
+}
+.autoprint-toggle.on  { border-color: var(--success); color: var(--success); }
+.autoprint-toggle.off { border-color: var(--border);  color: var(--muted); }
+
+/* WebUSB direct-printing connect button (removable with the WebUSB feature) */
+.escpos-connect-btn {
+    padding: 0.5rem 0.8rem; background: transparent; color: var(--muted);
+    border: 1px solid var(--border); border-radius: 8px;
+    font-family: 'Rubik', sans-serif; font-size: 0.85rem; cursor: pointer; transition: all 0.2s;
+}
+.escpos-connect-btn.connected { border-color: var(--success); color: var(--success); }
+
+/* Receipt formatting — sized for 80mm thermal paper (HPRT TP801 etc.) */
+@media print {
+    @page { size: 80mm auto; margin: 0; }
+    body * { visibility: hidden; }
+    #print-receipt, #print-receipt * { visibility: visible; }
+    #print-receipt {
+        display: block !important;
+        position: absolute; left: 0; top: 0;
+        width: 72mm;
+        padding: 3mm 4mm;
+        background: #fff;
+        color: #000 !important;
+        font-family: 'Rubik', 'Courier New', monospace;
+        font-size: 11pt;
+        line-height: 1.35;
+        direction: rtl;
+        text-align: right;
+    }
+    #print-receipt * { color: #000 !important; }
+    #print-receipt h1, #print-receipt h2 { margin: 0; padding: 0; }
+    #print-receipt .r-title { font-size: 14pt; font-weight: 900; text-align: center; }
+    #print-receipt .r-sub   { font-size: 10pt; text-align: center; margin-bottom: 2mm; }
+    #print-receipt .r-hr    { border-top: 1px dashed #000; margin: 2mm 0; }
+    #print-receipt .r-row   { display: flex; justify-content: space-between; gap: 2mm; }
+    #print-receipt .r-big   { font-size: 13pt; font-weight: 900; }
+    #print-receipt .r-bold  { font-weight: 700; }
+    #print-receipt .r-item  { margin: 1.5mm 0; padding-bottom: 1.5mm; border-bottom: 1px dotted #888; }
+    #print-receipt .r-extras { font-size: 9pt; color: #333 !important; }
+    #print-receipt .r-notes  { font-size: 9pt; font-style: italic; }
+    #print-receipt .r-foot   { text-align: center; font-size: 9pt; margin-top: 3mm; }
+    #print-receipt .r-win    { border: 1px dashed #000; padding: 1.5mm; margin-top: 2mm; font-size: 10pt; text-align: center; }
+}
+/* Keep the receipt out of the live page but available to print */
+#print-receipt {
+    position: absolute;
+    left: -10000px;
+    top: -10000px;
+    width: 72mm;
+}
+
+/* ─── EMPTY STATE ────────────────────────── */
+.empty-state {
+    text-align: center; padding: 3rem 1rem; color: var(--muted);
+    font-size: 0.95rem; display: none;
+}
+.empty-state .icon { font-size: 2.5rem; margin-bottom: 0.7rem; }
+
+/* ─── SOUND INDICATOR ────────────────────── */
+.sound-toggle {
+    padding: 0.5rem 0.8rem; background: transparent; color: var(--muted);
+    border: 1px solid var(--border); border-radius: 8px;
+    font-family: 'Rubik', sans-serif; font-size: 0.85rem; cursor: pointer;
+}
+.sound-on  { border-color: var(--success); color: var(--success); }
+.sound-off { border-color: var(--border);  color: var(--muted); }
+
+/* ─── TOAST ──────────────────────────────── */
+#toast {
+    position: fixed; bottom: 1.5rem; left: 50%; transform: translateX(-50%);
+    background: #222; color: var(--text); padding: 0.75rem 1.4rem;
+    border-radius: 30px; font-size: 0.9rem; font-weight: 500;
+    border: 1px solid var(--border); z-index: 999; white-space: nowrap;
+    opacity: 0; pointer-events: none; transition: opacity 0.3s;
+}
+#toast.show { opacity: 1; }
+
+/* ─── CONFIRM DIALOG — fades/settles along the same path in and out ──── */
+#confirm-modal {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0); z-index: 998;
+    display: flex; align-items: center; justify-content: center; padding: 1rem;
+    visibility: hidden; pointer-events: none;
+    transition: background-color .22s cubic-bezier(0.32,0.72,0,1);
+}
+#confirm-modal.open { visibility: visible; pointer-events: auto; background: rgba(0,0,0,0.75); }
+.confirm-box {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 16px; padding: 1.5rem; max-width: 320px; width: 100%;
+    text-align: center;
+    opacity: 0; transform: scale(0.94) translateY(8px);
+    transition: opacity .22s cubic-bezier(0.32,0.72,0,1), transform .22s cubic-bezier(0.32,0.72,0,1);
+}
+#confirm-modal.open .confirm-box { opacity: 1; transform: scale(1) translateY(0); }
+.confirm-box p { margin-bottom: 1.2rem; font-size: 1rem; color: var(--text); line-height: 1.5; }
+.confirm-actions { display: flex; gap: 0.7rem; justify-content: center; }
+.confirm-yes { background: var(--danger); color: white; border: none; border-radius: 8px; padding: 0.7rem 1.4rem; font-family: 'Rubik', sans-serif; font-weight: 700; cursor: pointer; font-size: 0.95rem; }
+.confirm-no  { background: #333; color: var(--text); border: none; border-radius: 8px; padding: 0.7rem 1.4rem; font-family: 'Rubik', sans-serif; font-weight: 700; cursor: pointer; font-size: 0.95rem; }
+
+/* ─── SCROLLBAR ──────────────────────────── */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+/* ========================================
+   Kitchen Mode Feature - ADDED
+   All selectors are prefixed .kitchen- (plus body.kitchen-* state classes).
+   This whole block can be removed without affecting the rest of the page.
+   ======================================== */
+.kitchen-mode-toggle {
+  padding: 0.5rem 0.9rem; background: transparent; color: var(--muted);
+  border: 1px solid var(--border); border-radius: 8px;
+  font-family: 'Rubik', sans-serif; font-size: 0.9rem; font-weight: 700; cursor: pointer;
+}
+.kitchen-mode-toggle.kitchen-active { background: var(--success); color: #000; border-color: var(--success); }
+
+/* Full-screen red flash while alerting */
+body.kitchen-alerting { animation: kitchenAlertFlash 0.4s infinite !important; }
+@keyframes kitchenAlertFlash { 0%,100% { background-color: var(--bg); } 50% { background-color: #c00 !important; } }
+
+/* Giant alert banner */
+.kitchen-alert-banner {
+  position: fixed; top: 0; left: 0; right: 0;
+  background: linear-gradient(135deg, #c00 0%, #ff4400 100%); color: #fff;
+  padding: 30px; text-align: center; font-size: 36px; font-weight: 900;
+  z-index: 10001; box-shadow: 0 4px 18px rgba(0,0,0,0.5); display: none;
+}
+.kitchen-alert-banner.kitchen-active { display: block; animation: kitchenBannerBounce 0.5s; }
+@keyframes kitchenBannerBounce { 0% { transform: translateY(-100%); } 60% { transform: translateY(10px); } 100% { transform: translateY(0); } }
+.kitchen-alert-banner button {
+  margin-top: 16px; background: #fff; color: #c00; border: none;
+  padding: 16px 32px; border-radius: 10px; font-size: 22px; font-weight: 900;
+  cursor: pointer; font-family: 'Rubik', sans-serif;
+}
+
+/* Connection + clock status bar */
+.kitchen-status-bar {
+  position: fixed; top: 8px; left: 8px; background: rgba(0,0,0,0.75); color: #fff;
+  padding: 6px 14px; border-radius: 20px; font-size: 14px; z-index: 9999;
+  display: none; gap: 8px; align-items: center;
+}
+.kitchen-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--success); animation: kitchenPulse 2s infinite; }
+.kitchen-dot.kitchen-disconnected { background: #ef4444; animation: none; }
+@keyframes kitchenPulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+/* Manual test button */
+.kitchen-test-btn {
+  position: fixed; bottom: 10px; left: 10px; background: #333; color: #fff; border: none;
+  padding: 8px 12px; border-radius: 6px; font-size: 13px; opacity: 0.7; z-index: 9998;
+  cursor: pointer; display: none; font-family: 'Rubik', sans-serif;
+}
+
+/* Highlight new-order cards only while kitchen mode is on (uses the real status class) */
+body.kitchen-mode-on .order-card.status-new {
+  border: 3px solid var(--success) !important;
+  animation: kitchenNewOrderGlow 1.5s infinite !important;
+}
+@keyframes kitchenNewOrderGlow {
+  0%,100% { box-shadow: 0 0 20px rgba(34,197,94,0.5); }
+  50%     { box-shadow: 0 0 40px rgba(34,197,94,0.9); }
+}
+
+/* Bigger alert on phone-sized screens (no vibration on iOS → lean on visuals) */
+@media (max-width: 850px) {
+  .kitchen-alert-banner { font-size: 28px !important; padding: 24px 16px !important; }
+  .kitchen-alert-banner button { width: 100%; margin-top: 20px; font-size: 24px !important; padding: 20px !important; }
+}
+/* ========================================
+   End Kitchen Mode Feature
+   ======================================== */
+
+/* ══ RESPONSE — instant press feedback on every tappable control ══ */
+.btn-taboon:active, .btn-done:active, .btn-cancel:active, .btn-print:active,
+.autoprint-toggle:active, .sound-toggle:active, .logout-btn:active, .prep-btn:active,
+.escpos-connect-btn:active, .kitchen-mode-toggle:active, .kitchen-test-btn:active,
+.confirm-yes:active, .confirm-no:active, .login-btn:active {
+    transform: scale(0.95);
+    transition: transform 100ms ease-out;
+}
+
+/* ══ REDUCED MOTION — a calmer equivalent, not silence. In particular the
+   kitchen alert's full-screen red strobe is a real photosensitivity risk, so
+   it's replaced with a static highlight; the banner, sound and vibration
+   still fire — the alert stays effective, just without the flashing. ══ */
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; }
+    body.kitchen-alerting { animation: none !important; background-color: #c00 !important; }
+    .kitchen-alert-banner.kitchen-active { animation: none !important; }
+    .order-card.status-new { animation: none !important; }
+    .kitchen-dot { animation: none !important; }
+    #confirm-modal, .confirm-box, #login-screen { transition-duration: 0.12s !important; }
+    .confirm-box { transform: none !important; }
+}
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="login-screen">
+    <div class="login-logo" id="login-brand-name">🍔 הדיינר</div>
+    <div class="login-box">
+        <h2>כניסה ללוח ניהול</h2>
+        <input class="login-input" type="password" id="lpass" placeholder="••••••••"
+               onkeydown="if(event.key==='Enter')doLogin()">
+        <button class="login-btn" onclick="doLogin()">כניסה</button>
+        <div class="login-err" id="lerr">סיסמה שגויה</div>
+    </div>
+</div>
+
+<!-- APP -->
+<div id="app">
+
+    <!-- TOP BAR -->
+    <div class="topbar">
+        <div style="display:flex; align-items:center; gap:1rem;">
+            <div class="topbar-brand" id="topbar-brand-name">🍔 הדיינר — KDS</div>
+            <div class="topbar-clock" id="clock"></div>
+        </div>
+        <div class="topbar-actions">
+            <div class="prep-btns">
+                <button class="prep-btn prep-normal" id="btn-normal" onclick="setPrepMode('normal')">✅ מצב רגיל (45 דק')</button>
+                <button class="prep-btn prep-busy"   id="btn-busy"   onclick="setPrepMode('busy')">🔥 מצב עומס</button>
+            </div>
+            <button class="sound-toggle sound-on" id="sound-btn" onclick="toggleSound()">🔔 צליל</button>
+            <button class="autoprint-toggle off" id="autoprint-btn" onclick="toggleAutoPrint()">🖨 הדפסה אוטומטית כבויה</button>
+            <!-- WebUSB direct printing: connect-printer button (added to existing topbar; removable) -->
+            <button class="escpos-connect-btn" id="escpos-connect-btn" onclick="escposConnect()">🔌 חבר מדפסת USB</button>
+            <!-- Kitchen Mode: toggle button (added to existing topbar; removable) -->
+            <button class="kitchen-mode-toggle" id="kitchen-toggle-btn" onclick="kitchenToggle()">🍳 הפעל מצב מטבח</button>
+            <button class="logout-btn" style="background:#444;" onclick="window.location.href='/'">🏪 לאתר</button>
+            <button class="logout-btn" style="background:#d21f24;" onclick="window.location.href='/?admin=1'">⚙️ הגדרות</button>
+            <button class="logout-btn" style="background:#e8590c;" onclick="window.location.href='/marketing/admin/marketing-dashboard.html'">📣 שיווק</button>
+            <button class="logout-btn" onclick="doLogout()">יציאה</button>
+        </div>
+    </div>
+
+    <!-- STATS -->
+    <div class="stats-bar">
+        <div class="stat"><div class="stat-num" id="s-active">0</div><div class="stat-lbl">פעילות</div></div>
+        <div class="stat-divider"></div>
+        <div class="stat"><div class="stat-num" id="s-today">0</div><div class="stat-lbl">היום</div></div>
+        <div class="stat-divider"></div>
+        <div class="stat"><div class="stat-num" id="s-revenue">0 ₪</div><div class="stat-lbl">מחזור היום</div></div>
+        <div class="stat-divider"></div>
+        <div class="stat"><div class="stat-num" id="s-delivery">0</div><div class="stat-lbl">משלוחים</div></div>
+        <div class="stat-divider"></div>
+        <div class="stat"><div class="stat-num" id="s-pickup">0</div><div class="stat-lbl">איסוף</div></div>
+    </div>
+
+    <!-- COLUMNS -->
+    <div class="columns-wrap">
+        <!-- NEW ORDERS -->
+        <div class="col">
+            <div class="col-header">
+                <span>🆕 הזמנות חדשות</span>
+                <span class="col-count" id="cnt-new">0</span>
+            </div>
+            <div id="col-new">
+                <div class="empty-state" id="empty-new" style="display:block;">
+                    <div class="icon">🍔</div>
+                    אין הזמנות חדשות כרגע
+                </div>
+            </div>
+        </div>
+
+        <!-- IN PROGRESS -->
+        <div class="col">
+            <div class="col-header">
+                <span>🔥 בטיפול</span>
+                <span class="col-count" id="cnt-inprog">0</span>
+            </div>
+            <div id="col-inprog">
+                <div class="empty-state" id="empty-inprog" style="display:block;">
+                    <div class="icon">⏳</div>
+                    אין הזמנות בטיפול
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<!-- PRINT TARGET (hidden until window.print() is invoked) -->
+<div id="print-receipt"></div>
+
+<!-- TOAST -->
+<div id="toast"></div>
+
+<!-- CONFIRM -->
+<div id="confirm-modal">
+    <div class="confirm-box">
+        <p id="confirm-msg"></p>
+        <div class="confirm-actions">
+            <button class="confirm-yes" id="confirm-yes-btn">אישור</button>
+            <button class="confirm-no" onclick="closeConfirm()">ביטול</button>
+        </div>
+    </div>
+</div>
+
+<script src="site.config.js"></script>
+<script src="js/firebase-auth.js"></script>
+<script>
+// ─── CONFIG -- values come from site.config.js (edit that file, not this one) ──
+const FB_URL     = SITE_CONFIG.firebase.dbUrl;
+const SENTRY_DSN = ""; // copy from your Sentry project → Settings → Client Keys
+
+(function applySiteConfig() {
+    const b = SITE_CONFIG.business;
+    const setText = (id, text) => { const el = document.getElementById(id); if (el) el.textContent = text; };
+    setText("login-brand-name", "🍔 " + b.name);
+    setText("topbar-brand-name", "🍔 " + b.name + " — KDS");
+})();
+
+(function setupSentry() {
+    if (!SENTRY_DSN) return;
+    const s = document.createElement("script");
+    s.src = "https://browser.sentry-cdn.com/7.114.0/bundle.tracing.min.js";
+    s.crossOrigin = "anonymous";
+    s.onload = () => {
+        if (window.Sentry) window.Sentry.init({ dsn: SENTRY_DSN, tracesSampleRate: 0.1, release: "ordering-site-kds", environment: "prod" });
+    };
+    document.head.appendChild(s);
+})();
+
+// ─── STATE ───────────────────────────────────────────────────
+let isLoggedIn    = false;
+let soundEnabled  = true;
+let knownOrders   = {};     // key → order obj (active orders)
+let todayStats    = { count: 0, revenue: 0, delivery: 0, pickup: 0 };
+let clockInterval = null;
+let pollInterval  = null;
+let timersInterval = null;
+let firstPoll     = true;   // distinguishes "first ever poll" from "currently 0 active orders"
+let prepMode      = 'normal';
+
+// ─── UTILS ───────────────────────────────────────────────────
+// Build a REST URL. Writes append the admin's Firebase Auth token (when FBAuth is
+// enabled and signed in) so they're authorized once the DB rules are locked to admins.
+// Dormant by default — see js/firebase-auth.js.
+function fbUrl(path, auth) {
+    let u = FB_URL + path + ".json";
+    const q = (auth && window.FBAuth) ? window.FBAuth.authQuery() : "";
+    if (q) u += (u.includes("?") ? "&" : "?") + q;
+    return u;
+}
+async function fbGet(path) {
+    try {
+        const r = await fetch(fbUrl(path, false));
+        return r.ok ? await r.json() : null;
+    } catch { return null; }
+}
+let _deniedWarned = 0;
+function warnIfDenied(status) {
+    // Surface a permission failure (locked rules + missing admin claim) instead of
+    // failing silently and letting the order "snap back" on the next poll.
+    if (status === 401 || status === 403) {
+        if (Date.now() - _deniedWarned > 4000) {
+            _deniedWarned = Date.now();
+            const noClaim = window.FBAuth && window.FBAuth.enabled && !window.FBAuth.hasAdminClaim();
+            toast(noClaim ? "❌ אין הרשאת אדמין — התנתק והתחבר מחדש" : "❌ הפעולה נחסמה (הרשאות) — התחבר מחדש");
+        }
+        return false;
+    }
+    return true;
+}
+async function fbSet(path, data) {
+    try {
+        const r = await fetch(fbUrl(path, true), {
+            method: "PUT", headers: {"Content-Type":"application/json"},
+            body: JSON.stringify(data)
+        });
+        return warnIfDenied(r.status) && r.ok;
+    } catch { return false; }
+}
+async function fbDelete(path) {
+    try { const r = await fetch(fbUrl(path, true), {method:"DELETE"}); return warnIfDenied(r.status) && r.ok; } catch { return false; }
+}
+
+function toast(msg, dur = 2500) {
+    const el = document.getElementById('toast');
+    el.textContent = msg;
+    el.classList.add('show');
+    setTimeout(() => el.classList.remove('show'), dur);
+}
+
+function customConfirm(msg, onYes) {
+    document.getElementById('confirm-msg').textContent = msg;
+    document.getElementById('confirm-modal').classList.add('open');
+    document.getElementById('confirm-yes-btn').onclick = () => { closeConfirm(); onYes(); };
+}
+function closeConfirm() { document.getElementById('confirm-modal').classList.remove('open'); }
+
+function timeAgo(ts) {
+    const mins = Math.floor((Date.now() - ts) / 60000);
+    if (mins < 1) return 'עכשיו';
+    if (mins === 1) return 'לפני דקה';
+    if (mins < 60) return `לפני ${mins} דקות`;
+    const hrs = Math.floor(mins / 60);
+    return `לפני ${hrs} שעות`;
+}
+
+function cleanPhone(phone) {
+    return String(phone || '').replace(/\D/g, '');
+}
+
+function openWhatsApp(phone, name) {
+    const p = cleanPhone(phone);
+    // Convert Israeli local number to international (see SETUP.md for non-IL numbers)
+    const intl = p.startsWith('0') ? SITE_CONFIG.business.whatsappCountryCode + p.slice(1) : p;
+    const msg = encodeURIComponent(
+        `היי ${name}, ההזמנה שלך מוכנה! 🔥 אפשר להתחיל לצאת אלינו לאסוף. מחכים לך ב${SITE_CONFIG.business.name}!`
+    );
+    window.open(`https://wa.me/${intl}?text=${msg}`, '_blank');
+}
+
+// ─── CLOCK ───────────────────────────────────────────────────
+function startClock() {
+    function tick() {
+        const now = new Date().toLocaleTimeString('he-IL', {
+            timeZone: 'Asia/Jerusalem', hour: '2-digit', minute: '2-digit', second: '2-digit'
+        });
+        const el = document.getElementById('clock');
+        if (el) el.textContent = now;
+    }
+    tick();
+    clockInterval = setInterval(tick, 1000);
+}
+
+// ─── AUTH ─────────────────────────────────────────────────────
+async function doLogin() {
+    const pass = document.getElementById('lpass').value;
+    const btn  = document.querySelector('.login-btn');
+    btn.disabled = true; btn.textContent = 'מתחבר...';
+    try {
+        const res  = await fetch('/.netlify/functions/admin-login', {
+            method: 'POST', headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({ password: pass })
+        });
+        const data = await res.json();
+        if (data.ok) {
+            // Also sign into Firebase Auth (no-op until FBAuth is enabled + configured)
+            // so kitchen writes carry the admin token once the DB rules are locked.
+            if (window.FBAuth && window.FBAuth.enabled) { try { await window.FBAuth.signIn(pass); } catch {} }
+            isLoggedIn = true;
+            document.getElementById('login-screen').style.display = 'none';
+            document.getElementById('app').style.display = 'flex';
+            document.getElementById('app').style.flexDirection = 'column';
+            startClock();
+            loadPrintState();
+            startRealtime();
+            loadTodayStats();
+            loadPrepMode();
+        } else {
+            document.getElementById('lerr').style.display = 'block';
+        }
+    } catch {
+        document.getElementById('lerr').style.display = 'block';
+    } finally {
+        btn.disabled = false; btn.textContent = 'כניסה';
+    }
+}
+
+function doLogout() {
+    isLoggedIn = false;
+    clearInterval(clockInterval);
+    clearInterval(pollInterval);
+    clearInterval(timersInterval);
+    document.getElementById('app').style.display = 'none';
+    document.getElementById('login-screen').style.display = 'flex';
+    document.getElementById('lpass').value = '';
+    document.getElementById('lerr').style.display = 'none';
+}
+
+// ─── PREP MODE ────────────────────────────────────────────────
+async function setPrepMode(mode) {
+    prepMode = mode;
+    const text = mode === 'normal' ? '45 דקות' : 'זמן ההכנה ארוך מהרגיל עקב עומס';
+    await fbSet('siteSettings/prepTime', text);
+    updatePrepUI(mode);
+    toast(mode === 'normal' ? '✅ מצב רגיל פעיל' : '🔥 מצב עומס פעיל');
+}
+
+function updatePrepUI(mode) {
+    document.getElementById('btn-normal').className = 'prep-btn prep-normal' + (mode === 'normal' ? ' prep-active-normal' : '');
+    document.getElementById('btn-busy').className   = 'prep-btn prep-busy'   + (mode === 'busy'   ? ' prep-active-busy'   : '');
+}
+
+async function loadPrepMode() {
+    const val = await fbGet('siteSettings/prepTime');
+    if (val && val.includes('עומס')) { prepMode = 'busy'; updatePrepUI('busy'); }
+    else { prepMode = 'normal'; updatePrepUI('normal'); }
+}
+
+// ─── SOUND ───────────────────────────────────────────────────
+function toggleSound() {
+    soundEnabled = !soundEnabled;
+    const btn = document.getElementById('sound-btn');
+    btn.textContent = soundEnabled ? '🔔 צליל' : '🔕 צליל';
+    btn.className = 'sound-toggle ' + (soundEnabled ? 'sound-on' : 'sound-off');
+}
+
+function playNewOrderSound() {
+    if (!soundEnabled) return;
+    try {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        [523, 659, 784].forEach((freq, i) => {
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.connect(gain); gain.connect(ctx.destination);
+            osc.frequency.value = freq;
+            osc.type = 'sine';
+            gain.gain.setValueAtTime(0, ctx.currentTime + i * 0.18);
+            gain.gain.linearRampToValueAtTime(0.4, ctx.currentTime + i * 0.18 + 0.05);
+            gain.gain.linearRampToValueAtTime(0, ctx.currentTime + i * 0.18 + 0.25);
+            osc.start(ctx.currentTime + i * 0.18);
+            osc.stop(ctx.currentTime + i * 0.18 + 0.3);
+        });
+    } catch {}
+}
+
+// ─── TODAY STATS ─────────────────────────────────────────────
+async function loadTodayStats() {
+    const orders = await fbGet('orders');
+    if (!orders) return;
+    const today = new Date().toISOString().slice(0, 10);
+    let count = 0, revenue = 0, delivery = 0, pickup = 0;
+    Object.values(orders).forEach(o => {
+        if (!o.ts) return;
+        if (new Date(o.ts).toISOString().slice(0, 10) !== today) return;
+        count++;
+        revenue += o.total || 0;
+        if (o.type === 'משלוח') delivery++; else pickup++;
+    });
+    todayStats = { count, revenue, delivery, pickup };
+    renderStats();
+}
+
+function renderStats() {
+    const active = Object.keys(knownOrders).length;
+    document.getElementById('s-active').textContent  = active;
+    document.getElementById('s-today').textContent   = todayStats.count;
+    document.getElementById('s-revenue').textContent = todayStats.revenue + ' ₪';
+    document.getElementById('s-delivery').textContent = todayStats.delivery;
+    document.getElementById('s-pickup').textContent   = todayStats.pickup;
+}
+
+// ─── REALTIME POLLING ─────────────────────────────────────────
+function startRealtime() {
+    fetchOrders();
+    pollInterval = setInterval(() => {
+        fetchOrders();
+        updateTimers();
+    }, 8000);
+    // Refresh the relative "time ago" labels independently of polling.
+    // Stored so logout can clear it (otherwise a new one stacks on every login).
+    if (timersInterval) clearInterval(timersInterval);
+    timersInterval = setInterval(updateTimers, 30000);
+}
+
+async function fetchOrders() {
+    const data = await fbGet('orders');
+    if (!data) {
+        renderAllColumns({});
+        firstPoll = false;
+        return;
+    }
+    // Detect new orders for sound
+    const prevKeys = new Set(Object.keys(knownOrders));
+    const activeOrders = {};
+    Object.entries(data).forEach(([key, o]) => {
+        // Only show orders without 'done' status
+        if (o.status !== 'done') activeOrders[key] = o;
+    });
+    // New order detected? Suppress only on the *first ever* poll (otherwise the board
+    // would alert+print every existing order on load). Using a dedicated `firstPoll`
+    // flag — not "knownOrders is empty" — so an order arriving after a quiet moment
+    // (0 active orders) still rings and auto-prints.
+    let kitchenNewCount = 0; // Kitchen Mode hook
+    Object.keys(activeOrders).forEach(k => {
+        if (!prevKeys.has(k) && !firstPoll) {
+            playNewOrderSound();
+            knownOrders[k] = activeOrders[k]; // make it visible to printOrder()
+            if (autoPrintEnabled) queuePrint(k);
+            kitchenNewCount++; // Kitchen Mode hook
+        }
+    });
+    // Kitchen Mode hook: notify the (isolated) kitchen feature of genuinely-new orders.
+    // No-op unless kitchen mode is active; never changes existing behavior.
+    if (kitchenNewCount > 0 && window.kitchenOnNewOrders) window.kitchenOnNewOrders(kitchenNewCount);
+    knownOrders = activeOrders;
+    firstPoll = false;
+    renderAllColumns(activeOrders);
+    // Also update today stats count
+    loadTodayStats();
+}
+
+function renderAllColumns(orders) {
+    const newOrders    = {};
+    const inprogOrders = {};
+    Object.entries(orders).forEach(([k, o]) => {
+        if (o.status === 'inprog') inprogOrders[k] = o;
+        else newOrders[k] = o;
+    });
+
+    renderColumn('col-new',    'empty-new',    'cnt-new',    newOrders,    'new');
+    renderColumn('col-inprog', 'empty-inprog', 'cnt-inprog', inprogOrders, 'inprog');
+    renderStats();
+}
+
+function renderColumn(colId, emptyId, cntId, orders, status) {
+    const col   = document.getElementById(colId);
+    const empty = document.getElementById(emptyId);
+    const cnt   = document.getElementById(cntId);
+    const keys  = Object.keys(orders);
+    cnt.textContent = keys.length;
+
+    // Remove cards no longer in list
+    col.querySelectorAll('.order-card').forEach(card => {
+        if (!orders[card.dataset.key]) card.remove();
+    });
+
+    // Add/update cards (newest first)
+    keys.sort((a, b) => (orders[b].ts || 0) - (orders[a].ts || 0)).forEach(key => {
+        const existing = col.querySelector(`[data-key="${key}"]`);
+        const html = buildCard(key, orders[key], status);
+        const sig  = orderSignature(orders[key]);
+        if (existing) {
+            if (existing.dataset.sig !== sig) {
+                // Data changed (e.g. dough-game win added a wonGameCode): replace card
+                const div = document.createElement('div');
+                div.innerHTML = html;
+                const card = div.firstElementChild;
+                existing.replaceWith(card);
+            } else {
+                // Same data — just refresh the relative time
+                const timerEl = existing.querySelector('.card-time');
+                if (timerEl) timerEl.textContent = timeAgo(orders[key].ts || Date.now());
+            }
+        } else {
+            const div = document.createElement('div');
+            div.innerHTML = html;
+            const card = div.firstElementChild;
+            col.insertBefore(card, col.querySelector('.order-card') || empty);
+        }
+    });
+
+    empty.style.display = keys.length ? 'none' : 'block';
+}
+
+function orderSignature(o) {
+    // Cheap signature of fields that affect rendering — used to detect when
+    // an existing card needs a re-render (e.g. dough-game win wrote wonGameCode).
+    return [o.status || '', o.wonGameCode || '', o.couponCode || '', o.payment || '',
+            o.total || 0, (o.items || []).length].join('|');
+}
+
+function buildCard(key, o, status) {
+    const isDelivery = o.type === 'משלוח';
+    const itemsHtml  = (o.items || []).map(item => {
+        const extras = (item.extras || []).map(e => escapeHtml(e.name) + (e.qty > 1 ? ` ×${e.qty}` : '')).join(', ');
+        const choice = item.choice ? `<div class="card-item-extras">🍔 ${escapeHtml(item.choice)}</div>` : '';
+        const notes  = item.notes ? `<div class="card-item-notes">📝 ${escapeHtml(item.notes)}</div>` : '';
+        return `<div class="card-item">
+            ${escapeHtml(item.name)}${item.qty > 1 ? ` ×${item.qty}` : ''}
+            ${choice}
+            ${extras ? `<div class="card-item-extras">+ ${extras}</div>` : ''}
+            ${notes}
+        </div>`;
+    }).join('');
+
+    // User-controlled values are passed via HTML-escaped data attributes and read
+    // through `this.dataset` in the handler — never interpolated into the JS string,
+    // so a malicious order name/phone can't break out or inject script.
+    const safeName  = escapeHtml(o.name || '');
+    const safePhone = escapeHtml(o.phone || '');
+    const taboonBtn = status === 'new'
+        ? `<button class="btn-taboon" data-key="${key}" data-name="${safeName}" data-phone="${safePhone}" onclick="markInProgress(this.dataset.key,this.dataset.name,this.dataset.phone)">
+               🔥 על הגריל
+           </button>`
+        : '';
+
+    const doneBtn = `<button class="btn-done" data-key="${key}" data-name="${safeName}" onclick="markDone(this.dataset.key,this.dataset.name)">
+                        ✅ סיום
+                     </button>`;
+    const cancelBtn = `<button class="btn-cancel" data-key="${key}" data-name="${safeName}" onclick="cancelOrder(this.dataset.key,this.dataset.name)" aria-label="ביטול הזמנה">✕</button>`;
+    const printBtn  = `<button class="btn-print" data-key="${key}" onclick="printOrder(this.dataset.key)" aria-label="הדפסת הזמנה">🖨</button>`;
+
+    return `<div class="order-card status-${status}" data-key="${key}" data-sig="${orderSignature(o)}">
+        <div class="card-header">
+            <div>
+                <div class="card-name">${escapeHtml(o.name || 'לא ידוע')}</div>
+                <div class="card-phone">📞 ${escapeHtml(o.phone || '')}</div>
+                ${isDelivery && o.address ? `<div class="card-address">📍 ${escapeHtml(o.address)}</div>` : ''}
+            </div>
+            <div class="card-badges">
+                <span class="badge ${isDelivery ? 'badge-delivery' : 'badge-pickup'}">${escapeHtml(o.type || 'איסוף')}</span>
+                <span class="badge ${status === 'new' ? 'badge-new' : 'badge-inprog'}">${status === 'new' ? 'חדש 🆕' : 'בטיפול 🔥'}</span>
+            </div>
+        </div>
+        <div class="card-items">${itemsHtml}</div>
+        ${o.couponCode ? `<div style="font-size:0.8rem; color:var(--muted); margin-bottom:0.5rem;">🎟 קופון: ${escapeHtml(o.couponCode)} (-${Number(o.discount)||0} ₪)</div>` : ''}
+        ${o.wonGameCode ? `<div style="font-size:0.8rem; color:#fbbf24; margin-bottom:0.5rem;">🏆 זכה במשחק! קוד אישי: <strong>${escapeHtml(o.wonGameCode)}</strong></div>` : ''}
+        ${o.payment === 'cash'
+            ? `<div style="font-size:0.85rem; color:var(--success); margin-bottom:0.5rem; font-weight:700;">💵 מזומן — אין צורך להתקשר</div>`
+            : `<div style="font-size:0.85rem; color:var(--warning); margin-bottom:0.5rem; font-weight:700;">💳 אשראי טלפוני — להתקשר ללקוח</div>`}
+        <div class="card-footer">
+            <div class="card-meta">
+                <span class="card-total">${o.total || 0} ₪</span>
+                <span class="card-time">${timeAgo(o.ts || Date.now())}</span>
+            </div>
+            <div class="card-actions">
+                ${taboonBtn}
+                ${doneBtn}
+                ${printBtn}
+                ${cancelBtn}
+            </div>
+        </div>
+    </div>`;
+}
+
+function updateTimers() {
+    document.querySelectorAll('.order-card').forEach(card => {
+        const key = card.dataset.key;
+        if (key && knownOrders[key]) {
+            const timerEl = card.querySelector('.card-time');
+            if (timerEl) timerEl.textContent = timeAgo(knownOrders[key].ts || Date.now());
+        }
+    });
+}
+
+// ─── ORDER ACTIONS ────────────────────────────────────────────
+// Best-effort push to the customer on every status change. Fire-and-forget so a
+// slow function call never blocks the kitchen's next click.
+function notifyOrderStatus(phone, status, orderKey, type) {
+    if (!phone) return;
+    fetch('/.netlify/functions/notify-order-status', {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({phone, status, orderKey, type})
+    }).catch(() => {});
+}
+
+async function markInProgress(key, name, phone) {
+    // Gate everything on the status write actually succeeding — otherwise we'd push
+    // "in progress" to the customer while the order silently stays "new" on the board.
+    const ok = await fbSet('orders/' + key + '/status', 'inprog');
+    if (!ok) return; // fbSet already showed the permission error
+    const order = knownOrders[key];
+    notifyOrderStatus(phone, 'inprog', key, order && order.type);
+    openWhatsApp(phone, name);
+    knownOrders[key] && (knownOrders[key].status = 'inprog');
+    renderAllColumns(knownOrders);
+    toast('🔥 ' + name + ' — נשלחה הודעת וואטסאפ + Push');
+}
+
+async function markDone(key, name) {
+    // Re-fetch the order if it isn't in our in-memory snapshot, so we never archive a
+    // stale copy. The status write is the gate: only archive / notify / remove from the
+    // board if it succeeded (otherwise a failed write would make the order reappear).
+    let order = knownOrders[key];
+    if (!order) order = await fbGet('orders/' + key);
+    const ok = await fbSet('orders/' + key + '/status', 'done');
+    if (!ok) return; // permission error already surfaced; leave the order on the board
+    if (order) {
+        const dateKey = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+        await fbSet('history/' + dateKey + '/' + key, {...order, completedAt: Date.now(), status: 'done'});
+    }
+    notifyOrderStatus(order && order.phone, 'done', key, order && order.type);
+    delete knownOrders[key];
+    renderAllColumns(knownOrders);
+    toast('✅ ' + name + ' — הושלמה!');
+}
+
+function cancelOrder(key, name) {
+    customConfirm(`לבטל את ההזמנה של "${name}"?`, async () => {
+        const ok = await fbDelete('orders/' + key);
+        if (!ok) return; // permission error already surfaced
+        delete knownOrders[key];
+        renderAllColumns(knownOrders);
+        toast('🗑 הזמנה בוטלה');
+    });
+}
+
+function escapeHtml(s) {
+    return String(s == null ? '' : s)
+        .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+        .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+// ─── PRINTING ─────────────────────────────────────────────────
+// Auto-print state lives in localStorage so it survives refreshes
+// (kitchen PCs are typically left on for hours).
+let autoPrintEnabled = false;
+const printedKeys = new Set();
+const printQueue  = [];
+let isPrinting = false;
+
+function loadPrintState() {
+    try {
+        autoPrintEnabled = localStorage.getItem('6bq_autoprint') === '1';
+        const stored = JSON.parse(localStorage.getItem('6bq_printed_keys') || '[]');
+        stored.slice(-200).forEach(k => printedKeys.add(k)); // keep last 200 to bound size
+    } catch {}
+    updateAutoPrintBtn();
+}
+function updateAutoPrintBtn() {
+    const btn = document.getElementById('autoprint-btn');
+    if (!btn) return;
+    if (autoPrintEnabled) {
+        btn.className = 'autoprint-toggle on';
+        btn.textContent = '🖨 הדפסה אוטומטית פעילה';
+    } else {
+        btn.className = 'autoprint-toggle off';
+        btn.textContent = '🖨 הדפסה אוטומטית כבויה';
+    }
+}
+function toggleAutoPrint() {
+    autoPrintEnabled = !autoPrintEnabled;
+    try { localStorage.setItem('6bq_autoprint', autoPrintEnabled ? '1' : '0'); } catch {}
+    updateAutoPrintBtn();
+    toast(autoPrintEnabled ? '🖨 הדפסה אוטומטית הופעלה' : '🖨 הדפסה אוטומטית כובתה');
+}
+function markPrinted(key) {
+    printedKeys.add(key);
+    try {
+        const arr = [...printedKeys].slice(-200);
+        localStorage.setItem('6bq_printed_keys', JSON.stringify(arr));
+    } catch {}
+}
+let currentPrintKey = null;
+let printWatchdog   = null;
+function queuePrint(key) {
+    if (printedKeys.has(key) || printQueue.includes(key)) return;
+    printQueue.push(key);
+    processPrintQueue();
+}
+function finishPrint(markDone) {
+    if (printWatchdog) { clearTimeout(printWatchdog); printWatchdog = null; }
+    // Mark printed only once the print actually completed — a transient failure
+    // leaves the ticket eligible for retry instead of being silently lost.
+    if (markDone && currentPrintKey) markPrinted(currentPrintKey);
+    currentPrintKey = null;
+    isPrinting = false;
+    setTimeout(processPrintQueue, 250);
+}
+function processPrintQueue() {
+    if (isPrinting || !printQueue.length) return;
+    const key = printQueue.shift();
+    if (printedKeys.has(key)) { processPrintQueue(); return; }
+    isPrinting = true;
+    currentPrintKey = key;
+    // Safety net: if `afterprint` never fires (some kiosk drivers), release the lock
+    // after 15s and retry so the queue can't deadlock and lose every later ticket.
+    printWatchdog = setTimeout(() => finishPrint(false), 15000);
+    printOrder(key);
+}
+window.addEventListener('afterprint', () => finishPrint(true));
+
+function buildReceiptHtml(o) {
+    const date = new Date(o.ts || Date.now()).toLocaleString('he-IL', { timeZone:'Asia/Jerusalem' });
+    const itemsHtml = (o.items || []).map(i => {
+        const extras = (i.extras || []).map(e => e.name + (e.qty > 1 ? ' ×' + e.qty : '')).join(', ');
+        return '<div class="r-item">' +
+            '<div class="r-row r-bold"><span>' + escapeHtml(i.name) + '</span><span>' + (i.basePrice || 0) + ' ₪</span></div>' +
+            (i.choice ? '<div class="r-extras">🍔 ' + escapeHtml(i.choice) + '</div>' : '') +
+            (extras ? '<div class="r-extras">+ ' + escapeHtml(extras) + '</div>' : '') +
+            (i.notes  ? '<div class="r-notes">📝 ' + escapeHtml(i.notes) + '</div>' : '') +
+        '</div>';
+    }).join('');
+    return (
+        '<div class="r-title">🍔 ' + escapeHtml(SITE_CONFIG.business.name) + '</div>' +
+        '<div class="r-sub">' + escapeHtml(SITE_CONFIG.business.city) + ' • ' + escapeHtml(date) + '</div>' +
+        '<div class="r-hr"></div>' +
+        '<div class="r-bold">' + escapeHtml(o.name || '') + '</div>' +
+        '<div>📞 ' + escapeHtml(o.phone || '') + '</div>' +
+        '<div>' + escapeHtml(o.type || '') + '</div>' +
+        (o.type === 'משלוח' && o.address ? '<div>📍 ' + escapeHtml(o.address) + '</div>' : '') +
+        '<div class="r-bold">' + (o.payment === 'cash' ? '💵 תשלום: מזומן' : '💳 תשלום: אשראי טלפוני') + '</div>' +
+        '<div class="r-hr"></div>' +
+        itemsHtml +
+        '<div class="r-hr"></div>' +
+        (o.couponCode ? '<div class="r-row"><span>🎟 ' + escapeHtml(o.couponCode) + '</span><span>-' + (o.discount || 0) + ' ₪</span></div>' : '') +
+        '<div class="r-row r-big"><span>סה״כ:</span><span>' + (o.total || 0) + ' ₪</span></div>' +
+        (o.wonGameCode ? '<div class="r-win">🏆 זכה במשחק! קוד: ' + escapeHtml(o.wonGameCode) + '</div>' : '') +
+        '<div class="r-foot">תודה ובתיאבון!</div>'
+    );
+}
+
+async function printOrder(key) {
+    let o = knownOrders[key];
+    if (!o) o = await fbGet('orders/' + key);   // transient miss — re-fetch before giving up
+    if (!o) {
+        toast('הזמנה לא נמצאה');
+        if (currentPrintKey === key) finishPrint(false); // release lock, leave for retry
+        return;
+    }
+    // WebUSB auto-print hook: if a USB printer was connected, print ESC/POS directly
+    // (automatic, no dialog) and advance the queue ourselves. If NOT connected — or it
+    // fails — fall through to the unchanged window.print() path, so default behavior is
+    // identical when WebUSB isn't in use.
+    if (window.escposIsConnected && window.escposIsConnected()) {
+        let ok = false;
+        try { ok = await window.escposPrintOrder(o); } catch (e) { console.warn('escpos print failed:', e); }
+        if (ok) { finishPrint(true); return; }
+        // else: fall through to window.print() (afterprint will call finishPrint)
+    }
+    const target = document.getElementById('print-receipt');
+    target.innerHTML = buildReceiptHtml(o);
+    window.print();
+}
+</script>
+
+<!-- ========================================
+     WebUSB direct printing - ADDED (isolated IIFE)
+     Automatic ESC/POS printing straight from this tablet to a USB-connected
+     thermal printer (e.g. HPRT TP801). Independent of the printer's LAN interface,
+     so it does NOT affect a POS (Aviv) that prints to the same printer over Ethernet.
+     The receipt is rendered to a canvas and sent as a raster image, so Hebrew RTL
+     prints correctly regardless of the printer code page.
+     Exposes: window.escposConnect / escposIsConnected / escposPrintOrder.
+     Hooked from printOrder() (one marked block); when not connected, the page uses
+     the unchanged window.print() path. Remove this whole block + the topbar button +
+     the marked hook inside printOrder to fully revert.
+     ======================================== -->
+<script>
+(function () {
+  'use strict';
+
+  // ── Config ──
+  const ESCPOS_WIDTH_DOTS = 576;   // 80mm @ 203dpi printable width. If output looks
+                                   // cut/shifted, try 512. (Only knob you should need.)
+  const DEV_KEY = "escpos_dev";    // remembers vendorId/productId of the chosen printer
+
+  let escDevice = null, escEndpoint = null, escIface = null;
+
+  // ── UI ──
+  function setBtn(connected) {
+    const b = document.getElementById("escpos-connect-btn");
+    if (!b) return;
+    b.classList.toggle("connected", connected);
+    b.textContent = connected ? "🖨 מדפסת USB מחוברת" : "🔌 חבר מדפסת USB";
+  }
+
+  // ── Claim a printer device and find its bulk-OUT endpoint ──
+  let escLastDiag = "";
+  async function claim(dev) {
+    if (escDevice === dev && escEndpoint != null) return true; // כבר מחוברים — לא לתפוס שוב
+    try { await dev.open(); } catch (e) { escLastDiag = "open-fail:" + e.name; return false; }
+    try { if (!dev.configuration || dev.configuration.configurationValue !== 1) await dev.selectConfiguration(1); } catch {}
+    const diag = [];
+    const claimWithRetry = async (n) => {
+      for (let attempt = 0; attempt < 3; attempt++) {
+        try { await dev.claimInterface(n); return true; }
+        catch (e) {
+          diag.push("claim#" + n + " try" + attempt + ":" + e.name);
+          try { await dev.releaseInterface(n); } catch {}
+          if (attempt === 0) { try { await dev.reset(); } catch {} }
+          await new Promise(r => setTimeout(r, 300));
+        }
+      }
+      return false;
+    };
+    const configs = dev.configurations && dev.configurations.length ? dev.configurations : (dev.configuration ? [dev.configuration] : []);
+    for (const cfg of configs) {
+      try { if (dev.configuration.configurationValue !== cfg.configurationValue) await dev.selectConfiguration(cfg.configurationValue); } catch {}
+      for (const iface of cfg.interfaces) {
+        for (const alt of iface.alternates) {
+          const out = alt.endpoints.find(e => e.direction === "out" && e.type === "bulk");
+          diag.push("if" + iface.interfaceNumber + " cls" + alt.interfaceClass + (out ? " OUT#" + out.endpointNumber : " (no-bulk-out)"));
+          if (!out) continue;
+          if (await claimWithRetry(iface.interfaceNumber)) {
+            if (alt.alternateSetting !== 0) { try { await dev.selectAlternateInterface(iface.interfaceNumber, alt.alternateSetting); } catch {} }
+            escDevice = dev; escEndpoint = out.endpointNumber; escIface = iface.interfaceNumber;
+            try { localStorage.setItem(DEV_KEY, JSON.stringify({ v: dev.vendorId, p: dev.productId })); } catch {}
+            return true;
+          }
+        }
+      }
+    }
+    escLastDiag = "VID " + dev.vendorId.toString(16) + " PID " + dev.productId.toString(16) + " | " + diag.join(" · ");
+    try { await dev.close(); } catch {}
+    return false;
+  }
+
+  // User-gesture connect (shows the chooser once; the grant is remembered).
+  async function escposConnect() {
+    if (!("usb" in navigator)) { alert("הדפדפן הזה לא תומך ב-WebUSB. השתמש ב-Chrome/Edge על אנדרואיד/מחשב."); return; }
+    try {
+      const dev = await navigator.usb.requestDevice({ filters: [] });
+      const ok = await claim(dev);
+      setBtn(ok);
+      if (ok && typeof toast === "function") toast("🖨 מדפסת USB חוברה — הדפסה ישירה פעילה");
+      else if (!ok) alert("לא הצלחתי לפתוח ערוץ הדפסה למדפסת.\n\nאבחון:\n" + escLastDiag);
+    } catch (e) {
+      if (e && e.name !== "NotFoundError") console.warn("escpos connect:", e); // NotFoundError = user cancelled
+    }
+  }
+
+  // Silent reconnect on load to a previously-granted printer (no chooser).
+  async function escposReconnect() {
+    if (!("usb" in navigator)) return;
+    try {
+      const list = await navigator.usb.getDevices();
+      if (!list.length) return;
+      let pick = list[0];
+      try { const s = JSON.parse(localStorage.getItem(DEV_KEY) || "null"); if (s) pick = list.find(d => d.vendorId === s.v && d.productId === s.p) || list[0]; } catch {}
+      const ok = await claim(pick);
+      setBtn(ok);
+    } catch (e) { console.warn("escpos reconnect:", e); }
+  }
+
+  function escposIsConnected() { return !!(escDevice && escEndpoint != null); }
+
+  // ── Send bytes in chunks ──
+  async function escposSend(bytes) {
+    const CH = 8192;
+    for (let i = 0; i < bytes.length; i += CH) {
+      await escDevice.transferOut(escEndpoint, bytes.subarray(i, i + CH));
+    }
+  }
+
+  // ── Render the receipt to a canvas (browser draws Hebrew RTL perfectly) ──
+  function renderReceipt(o) {
+    const W = ESCPOS_WIDTH_DOTS, M = 14;
+    const cv = document.createElement("canvas");
+    cv.width = W; cv.height = 3200;
+    const x = cv.getContext("2d");
+    x.fillStyle = "#fff"; x.fillRect(0, 0, W, cv.height);
+    x.fillStyle = "#000"; x.textBaseline = "top";
+    let y = 10;
+    const F = (sz, b) => (b ? "bold " : "") + sz + 'px "Rubik", Arial, sans-serif';
+
+    function wrap(text, font) {
+      x.font = font; const words = String(text).split(/\s+/); const lines = []; let cur = "";
+      for (const w of words) { const t = cur ? cur + " " + w : w; if (x.measureText(t).width > W - 2 * M && cur) { lines.push(cur); cur = w; } else cur = t; }
+      if (cur) lines.push(cur); return lines;
+    }
+    function center(text, sz, b) { x.font = F(sz, b); x.direction = "rtl"; x.textAlign = "center"; x.fillText(text, W / 2, y); y += sz * 1.45; }
+    function right(text, sz, b) { const font = F(sz, b); for (const ln of wrap(text, font)) { x.font = font; x.direction = "rtl"; x.textAlign = "right"; x.fillText(ln, W - M, y); y += sz * 1.4; } }
+    function rowRL(r, l, sz, b) { x.font = F(sz, b); x.direction = "rtl"; x.textAlign = "right"; x.fillText(r, W - M, y); x.textAlign = "left"; x.fillText(l, M, y); y += sz * 1.45; }
+    function hr() { x.strokeStyle = "#000"; x.lineWidth = 2; x.setLineDash([6, 5]); x.beginPath(); x.moveTo(M, y + 4); x.lineTo(W - M, y + 4); x.stroke(); x.setLineDash([]); y += 18; }
+
+    center(SITE_CONFIG.business.name, 46, true);
+    center(SITE_CONFIG.business.city + " · " + new Date(o.ts || Date.now()).toLocaleString("he-IL", { timeZone: "Asia/Jerusalem" }), 22, false);
+    hr();
+    right(o.name || "", 32, true);
+    right("טלפון: " + (o.phone || ""), 24, false);
+    right("סוג: " + (o.type || ""), 24, false);
+    if (o.type === "משלוח" && o.address) right("כתובת: " + o.address, 24, false);
+    right("תשלום: " + (o.payment === "cash" ? "מזומן" : "אשראי טלפוני"), 26, true);
+    hr();
+    (o.items || []).forEach(i => {
+      rowRL(i.name || "", ((Number(i.basePrice) || 0)) + " ₪", 27, true);
+      if (i.choice) right("פיצה: " + i.choice, 21, false);
+      const extras = (i.extras || []).map(e => e.name + (Number(e.qty) > 1 ? " ×" + e.qty : "")).join(", ");
+      if (extras) right("+ " + extras, 21, false);
+      if (i.notes) right("הערה: " + i.notes, 21, false);
+    });
+    hr();
+    if (o.couponCode) rowRL(o.couponCode, "-" + (Number(o.discount) || 0) + " ₪", 24, false);
+    rowRL('סה"כ:', (Number(o.total) || 0) + " ₪", 36, true);
+    if (o.wonGameCode) { y += 4; right("זכה במשחק! קוד: " + o.wonGameCode, 24, true); }
+    y += 6; center("תודה ובתיאבון!", 22, false);
+    y += 8;
+    return { canvas: cv, height: Math.min(cv.height, Math.ceil(y)) };
+  }
+
+  // ── Canvas → 1-bit ESC/POS raster (GS v 0), banded for safety ──
+  function buildEscpos(o) {
+    const { canvas, height } = renderReceipt(o);
+    const W = canvas.width, bpr = Math.ceil(W / 8);
+    const img = canvas.getContext("2d").getImageData(0, 0, W, height).data;
+    const bmp = new Uint8Array(bpr * height);
+    for (let yy = 0; yy < height; yy++) {
+      for (let xx = 0; xx < W; xx++) {
+        const idx = (yy * W + xx) * 4;
+        const lum = 0.299 * img[idx] + 0.587 * img[idx + 1] + 0.114 * img[idx + 2];
+        if (img[idx + 3] > 128 && lum < 128) bmp[yy * bpr + (xx >> 3)] |= (0x80 >> (xx & 7));
+      }
+    }
+    const parts = [Uint8Array.from([0x1B, 0x40])]; // ESC @  init
+    const BAND = 255;
+    for (let row = 0; row < height; row += BAND) {
+      const h = Math.min(BAND, height - row);
+      parts.push(Uint8Array.from([0x1D, 0x76, 0x30, 0x00, bpr & 0xFF, (bpr >> 8) & 0xFF, h & 0xFF, (h >> 8) & 0xFF]));
+      parts.push(bmp.subarray(row * bpr, (row + h) * bpr));
+    }
+    parts.push(Uint8Array.from([0x1B, 0x64, 0x03]));        // feed 3 lines
+    parts.push(Uint8Array.from([0x1D, 0x56, 0x42, 0x00]));  // feed + partial cut
+    let len = 0; parts.forEach(p => len += p.length);
+    const out = new Uint8Array(len); let off = 0; parts.forEach(p => { out.set(p, off); off += p.length; });
+    return out;
+  }
+
+  async function escposPrintOrder(o) {
+    if (!escposIsConnected()) return false;
+    try { if (document.fonts && document.fonts.ready) await document.fonts.ready; } catch {}
+    const bytes = buildEscpos(o);
+    await escposSend(bytes);
+    return true;
+  }
+
+  // Clear state if the printer is unplugged.
+  if ("usb" in navigator) {
+    navigator.usb.addEventListener("disconnect", (e) => {
+      if (escDevice && e.device === escDevice) { escDevice = null; escEndpoint = null; escIface = null; setBtn(false); }
+    });
+  }
+
+  window.escposConnect = escposConnect;
+  window.escposIsConnected = escposIsConnected;
+  window.escposPrintOrder = escposPrintOrder;
+
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", escposReconnect);
+  else escposReconnect();
+})();
+</script>
+<!-- ========= End WebUSB direct printing ========= -->
+
+<!-- ========= Kitchen Mode Feature - ADDED (isolated; removable as a block) ========= -->
+<div class="kitchen-status-bar" id="kitchen-status-bar">
+  <span class="kitchen-dot" id="kitchen-dot"></span>
+  <span id="kitchen-status-text">מחובר</span>
+  <span id="kitchen-clock"></span>
+</div>
+
+<div class="kitchen-alert-banner" id="kitchen-alert-banner">
+  🚨 <span id="kitchen-alert-count">0</span> הזמנות חדשות!
+  <br>
+  <button onclick="kitchenStopAlert()">ראיתי — עצור התראה</button>
+</div>
+
+<audio id="kitchen-alert-sound" loop preload="auto">
+  <source src="/sounds/alert.wav" type="audio/wav">
+</audio>
+
+<button class="kitchen-test-btn" id="kitchen-test-btn" onclick="kitchenTestAlert()">🔔 בדוק התראה</button>
+
+<div id="kitchen-ios-setup" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.95); z-index:10005; padding:20px; overflow-y:auto;">
+  <div style="background:#fff; color:#222; max-width:500px; margin:20px auto; padding:24px; border-radius:16px; font-family:'Rubik',sans-serif;">
+    <h2 style="color:#d21f24; margin-top:0;">🍔 הגדרת iPhone למצב מטבח</h2>
+    <p>כדי שמצב המטבח יעבוד מצוין באייפון, הגדר 4 דברים:</p>
+    <h3>1️⃣ Auto-Lock = Never</h3>
+    <ol><li>Settings → Display &amp; Brightness</li><li>Auto-Lock → <strong>Never</strong></li></ol>
+    <p style="background:#fff0e6; padding:10px; border-radius:8px; font-size:14px;">⚠️ קריטי! בלי זה המסך יכבה והתראות לא יישמעו.</p>
+    <h3>2️⃣ מצב שקט (Silent) כבוי</h3>
+    <p>המתג הפיזי בצד שמאל למעלה — ודא שאין כתום.</p>
+    <h3>3️⃣ ווליום על מקסימום</h3>
+    <p>כפתורי הצד למעלה עד Maximum.</p>
+    <h3>4️⃣ הוסף למסך הבית (מומלץ)</h3>
+    <ol><li>כפתור שיתוף ⬆️ בסרגל התחתון של Safari</li><li>"Add to Home Screen"</li><li>פתח את האייקון מהמסך הבית</li></ol>
+    <p style="background:#fff0e6; padding:10px; border-radius:8px; font-size:14px;">💡 ככה אין URL bar וה-Wake Lock יציב יותר.</p>
+    <button onclick="document.getElementById('kitchen-ios-setup').style.display='none'"
+            style="background:#d21f24; color:#fff; border:none; padding:14px 28px; border-radius:8px; font-size:16px; font-weight:bold; cursor:pointer; width:100%; margin-top:16px; font-family:'Rubik',sans-serif;">
+      הבנתי, הכל מוגדר ✓
+    </button>
+  </div>
+</div>
+<!-- ========= End Kitchen Mode Feature ========= -->
+
+<!-- ========================================
+     Kitchen Mode Feature - ADDED (isolated IIFE)
+     All vars/functions are prefixed kitchen*. New orders are detected by the
+     EXISTING poller (fetchOrders) which calls window.kitchenOnNewOrders() — no
+     second poller. Removing this whole block (and the HTML/CSS blocks +
+     the 3 lines marked "Kitchen Mode hook" in fetchOrders) reverts the page.
+     ======================================== -->
+<script>
+(function () {
+  'use strict';
+
+  // ===== iOS detection =====
+  const KITCHEN_IS_IOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+  const KITCHEN_IS_STANDALONE = (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches) || window.navigator.standalone === true;
+
+  // ===== State =====
+  let kitchenModeActive = false;
+  let kitchenWakeLock = null;
+  let kitchenWakeRefreshInterval = null;
+  let kitchenAlertSound = null;
+  let kitchenFallbackSound = null;
+  let kitchenAudioUnlocked = false;
+  let kitchenVibrationInterval = null;
+  let kitchenAlertActive = false;
+  let kitchenClockInterval = null;
+
+  // ===== WebAudio fallback (used only if the <audio> element can't play) =====
+  function kitchenCreateFallbackSound() {
+    let ctx = null, interval = null, playing = false;
+    return {
+      play() {
+        if (playing) return Promise.resolve();
+        playing = true;
+        try { ctx = new (window.AudioContext || window.webkitAudioContext)(); } catch { return Promise.resolve(); }
+        const beep = () => {
+          if (!ctx) return;
+          const osc = ctx.createOscillator(), gain = ctx.createGain();
+          osc.connect(gain); gain.connect(ctx.destination);
+          osc.type = "square"; osc.frequency.value = 880; gain.gain.value = 0.3;
+          osc.start(); osc.stop(ctx.currentTime + 0.25);
+        };
+        beep(); interval = setInterval(beep, 600);
+        return Promise.resolve();
+      },
+      pause() {
+        playing = false;
+        if (interval) { clearInterval(interval); interval = null; }
+        if (ctx) { try { ctx.close(); } catch {} ctx = null; }
+      },
+      currentTime: 0, loop: true, volume: 1, muted: false
+    };
+  }
+
+  // ===== Init =====
+  function kitchenInit() {
+    kitchenAlertSound = document.getElementById("kitchen-alert-sound");
+    if (!kitchenAlertSound || !kitchenAlertSound.canPlayType || !kitchenAlertSound.canPlayType("audio/wav")) {
+      kitchenFallbackSound = kitchenCreateFallbackSound();
+    }
+    // Reflect network state on the dot whenever it changes.
+    window.addEventListener("online", kitchenUpdateConnection);
+    window.addEventListener("offline", kitchenUpdateConnection);
+    // Re-acquire the wake lock when returning to the tab.
+    document.addEventListener("visibilitychange", async () => {
+      if (!document.hidden && kitchenModeActive && !kitchenWakeLock) await kitchenRequestWakeLock();
+    });
+    // Restore previous session.
+    if (localStorage.getItem("kitchenModeActive") === "true") kitchenEnable(true);
+    console.log("Kitchen Mode: initialized. iOS =", KITCHEN_IS_IOS, "standalone =", KITCHEN_IS_STANDALONE);
+  }
+
+  // ===== Toggle / enable / disable =====
+  async function kitchenToggle() {
+    if (kitchenModeActive) { if (confirm("לכבות את מצב המטבח?")) kitchenDisable(); }
+    else { await kitchenEnable(false); }
+  }
+
+  async function kitchenEnable(restored) {
+    kitchenModeActive = true;
+    localStorage.setItem("kitchenModeActive", "true");
+
+    const btn = document.getElementById("kitchen-toggle-btn");
+    if (btn) { btn.classList.add("kitchen-active"); btn.textContent = "🍳 מצב מטבח פעיל"; }
+    const bar = document.getElementById("kitchen-status-bar"); if (bar) bar.style.display = "flex";
+    const test = document.getElementById("kitchen-test-btn"); if (test) test.style.display = "block";
+    document.body.classList.add("kitchen-mode-on");
+
+    kitchenUpdateConnection();
+    kitchenStartClock();
+    await kitchenRequestWakeLock();
+    kitchenStartWakeLockRefresh();
+
+    if (restored) {
+      // No user gesture on auto-restore → unlock audio on the first interaction.
+      const onFirst = async () => { await kitchenUnlockAudio(); document.removeEventListener("pointerdown", onFirst); };
+      document.addEventListener("pointerdown", onFirst, { once: true });
+    } else {
+      // Toggle click IS a user gesture → unlock now (required by iOS).
+      if ("Notification" in window && Notification.permission === "default") { try { await Notification.requestPermission(); } catch {} }
+      await kitchenUnlockAudio();
+      if (KITCHEN_IS_IOS && !KITCHEN_IS_STANDALONE && !localStorage.getItem("kitchenIOSSetupSeen")) {
+        const m = document.getElementById("kitchen-ios-setup"); if (m) m.style.display = "block";
+        localStorage.setItem("kitchenIOSSetupSeen", "true");
+      }
+    }
+    console.log("Kitchen Mode: enabled" + (restored ? " (restored)" : ""));
+  }
+
+  function kitchenDisable() {
+    kitchenModeActive = false;
+    localStorage.removeItem("kitchenModeActive");
+    kitchenStopAlertInternal();
+
+    const btn = document.getElementById("kitchen-toggle-btn");
+    if (btn) { btn.classList.remove("kitchen-active"); btn.textContent = "🍳 הפעל מצב מטבח"; }
+    const bar = document.getElementById("kitchen-status-bar"); if (bar) bar.style.display = "none";
+    const test = document.getElementById("kitchen-test-btn"); if (test) test.style.display = "none";
+    document.body.classList.remove("kitchen-mode-on");
+
+    if (kitchenWakeLock) { kitchenWakeLock.release().catch(() => {}); kitchenWakeLock = null; }
+    if (kitchenWakeRefreshInterval) { clearInterval(kitchenWakeRefreshInterval); kitchenWakeRefreshInterval = null; }
+    if (kitchenClockInterval) { clearInterval(kitchenClockInterval); kitchenClockInterval = null; }
+    console.log("Kitchen Mode: disabled");
+  }
+
+  // ===== Wake Lock (+ iOS refresh fallback) =====
+  async function kitchenRequestWakeLock() {
+    if (!("wakeLock" in navigator)) { console.warn("Kitchen Mode: Wake Lock not supported"); return; }
+    try {
+      kitchenWakeLock = await navigator.wakeLock.request("screen");
+      kitchenWakeLock.addEventListener("release", () => { kitchenWakeLock = null; });
+    } catch (e) { console.warn("Kitchen Mode: Wake Lock failed:", e); }
+  }
+  function kitchenStartWakeLockRefresh() {
+    if (kitchenWakeRefreshInterval) clearInterval(kitchenWakeRefreshInterval);
+    kitchenWakeRefreshInterval = setInterval(async () => {
+      if (kitchenModeActive && !kitchenWakeLock && !document.hidden) await kitchenRequestWakeLock();
+    }, 30000);
+  }
+
+  // ===== Audio unlock (iOS-friendly) =====
+  async function kitchenUnlockAudio() {
+    const snd = kitchenAlertSound || kitchenFallbackSound;
+    if (!snd) return false;
+    try {
+      snd.volume = 0;
+      const p = snd.play();
+      if (p !== undefined) await p;
+      setTimeout(() => { try { snd.pause(); snd.currentTime = 0; snd.volume = 1; } catch {} }, 100);
+      kitchenAudioUnlocked = true;
+      return true;
+    } catch (e) {
+      console.warn("Kitchen Mode: audio unlock failed:", e);
+      // Switch to the WebAudio fallback if the media element is the problem.
+      if (snd === kitchenAlertSound && !kitchenFallbackSound) { kitchenFallbackSound = kitchenCreateFallbackSound(); }
+      return false;
+    }
+  }
+
+  // ===== Clock =====
+  function kitchenStartClock() {
+    const upd = () => { const el = document.getElementById("kitchen-clock"); if (el) el.textContent = new Date().toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" }); };
+    upd();
+    if (kitchenClockInterval) clearInterval(kitchenClockInterval);
+    kitchenClockInterval = setInterval(upd, 30000);
+  }
+
+  // ===== Connection indicator (derived from navigator.onLine) =====
+  function kitchenUpdateConnection() {
+    const dot = document.getElementById("kitchen-dot");
+    const text = document.getElementById("kitchen-status-text");
+    if (!dot || !text) return;
+    if (navigator.onLine) { dot.classList.remove("kitchen-disconnected"); text.textContent = "מחובר"; }
+    else { dot.classList.add("kitchen-disconnected"); text.textContent = "אין חיבור!"; }
+  }
+
+  // ===== Alert =====
+  function kitchenTriggerAlert(count) {
+    kitchenAlertActive = true;
+    const countEl = document.getElementById("kitchen-alert-count"); if (countEl) countEl.textContent = count;
+    const banner = document.getElementById("kitchen-alert-banner"); if (banner) banner.classList.add("kitchen-active");
+    document.body.classList.add("kitchen-alerting");
+
+    const snd = kitchenAlertSound || kitchenFallbackSound;
+    if (snd) {
+      try {
+        snd.currentTime = 0; snd.loop = true; snd.volume = 1;
+        const p = snd.play();
+        if (p && p.catch) p.catch(() => {
+          // Media element blocked → fall back to WebAudio beeps.
+          if (!kitchenFallbackSound) kitchenFallbackSound = kitchenCreateFallbackSound();
+          kitchenFallbackSound.play();
+        });
+      } catch (e) { console.warn("Kitchen Mode: sound failed:", e); }
+    }
+
+    if ("vibrate" in navigator && !KITCHEN_IS_IOS) {
+      navigator.vibrate([400, 200, 400, 200, 600]);
+      kitchenVibrationInterval = setInterval(() => navigator.vibrate([400, 200, 400, 200, 600]), 3000);
+    }
+    if ("Notification" in window && Notification.permission === "granted") {
+      try { new Notification("🍔 הזמנה חדשה!", { body: count + " הזמנות חדשות מחכות", requireInteraction: true, tag: "kitchen-new-order" }); } catch {}
+    }
+  }
+
+  function kitchenStopAlertInternal() {
+    kitchenAlertActive = false;
+    document.body.classList.remove("kitchen-alerting");
+    const banner = document.getElementById("kitchen-alert-banner"); if (banner) banner.classList.remove("kitchen-active");
+    const snd = kitchenAlertSound; if (snd) { try { snd.pause(); snd.currentTime = 0; } catch {} }
+    if (kitchenFallbackSound) { try { kitchenFallbackSound.pause(); } catch {} }
+    if (kitchenVibrationInterval) { clearInterval(kitchenVibrationInterval); kitchenVibrationInterval = null; }
+    if ("vibrate" in navigator && !KITCHEN_IS_IOS) navigator.vibrate(0);
+  }
+
+  // ===== Manual test =====
+  function kitchenTestAlert() {
+    kitchenTriggerAlert(1);
+    setTimeout(() => { if (kitchenAlertActive && confirm("ההתראה עובדת? אישור לעצור.")) kitchenStopAlertInternal(); }, 8000);
+  }
+
+  // ===== Integration hook (called by the EXISTING fetchOrders) =====
+  function kitchenOnNewOrders(count) { if (kitchenModeActive) kitchenTriggerAlert(count || 1); }
+
+  // ===== Expose only what onclick / fetchOrders need =====
+  window.kitchenToggle = kitchenToggle;
+  window.kitchenStopAlert = kitchenStopAlertInternal;
+  window.kitchenTestAlert = kitchenTestAlert;
+  window.kitchenOnNewOrders = kitchenOnNewOrders;
+
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", kitchenInit);
+  else kitchenInit();
+})();
+</script>
+<!-- ========================================
+     End Kitchen Mode Feature
+     ======================================== -->
+
+</body>
+</html>

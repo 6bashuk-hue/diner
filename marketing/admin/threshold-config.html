@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>סף למתנה חינם · הדיינר</title>
+  <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="marketing.css">
+</head>
+<body>
+<div id="nav"></div>
+<div class="mkt-wrap">
+  <h1>🎁 סף למתנה חינם (Threshold Nudge)</h1>
+  <p class="muted small">כשסכום הסל עובר את הסף, ללקוח מתווסף פריט חינם — מגדיל AOV. השינוי חי באתר מיד אחרי שמירה.</p>
+
+  <div class="card">
+    <label><input type="checkbox" id="enabled"> מנגנון פעיל</label>
+    <label for="amount">סף (₪)</label>
+    <input type="number" id="amount" min="0">
+    <label for="iname">שם הפריט שיינתן</label>
+    <input id="iname">
+    <label for="idesc">תיאור</label>
+    <input id="idesc">
+    <div class="grid cols-2">
+      <div>
+        <label for="iprice">מחיר תפריט (₪)</label>
+        <input type="number" id="iprice" min="0">
+      </div>
+      <div>
+        <label for="icost">עלות אמיתית לעסק (₪)</label>
+        <input type="number" id="icost" min="0">
+      </div>
+    </div>
+    <div class="btn-row"><button class="btn" id="save">💾 שמור</button></div>
+    <div id="msg"></div>
+  </div>
+
+  <div class="card" style="background:var(--surface-2)">
+    <h2>📊 שבוע אחרון</h2>
+    <div id="stats"><div class="muted small">טוען...</div></div>
+  </div>
+</div>
+
+<script src="/site.config.js"></script>
+<script src="marketing-common.js"></script>
+<script>
+renderNav("threshold-config.html");
+
+async function init() {
+  const cfg = (await fbGet("marketingConfig/thresholdNudge")) || {
+    enabled: true, thresholdAmount: 95,
+    rewardItem: { name: "צ'יפס אמריקאי", description: "צ'יפס דיינר פריך ומוזהב", menuPrice: 25, actualCost: 4 }
+  };
+  document.getElementById("enabled").checked = !!cfg.enabled;
+  document.getElementById("amount").value = cfg.thresholdAmount;
+  document.getElementById("iname").value  = cfg.rewardItem.name || "";
+  document.getElementById("idesc").value  = cfg.rewardItem.description || "";
+  document.getElementById("iprice").value = cfg.rewardItem.menuPrice || 0;
+  document.getElementById("icost").value  = cfg.rewardItem.actualCost || 0;
+
+  document.getElementById("save").addEventListener("click", async () => {
+    const next = {
+      enabled: document.getElementById("enabled").checked,
+      thresholdAmount: Number(document.getElementById("amount").value) || 0,
+      rewardItem: {
+        name: document.getElementById("iname").value.trim(),
+        description: document.getElementById("idesc").value.trim(),
+        menuPrice: Number(document.getElementById("iprice").value) || 0,
+        actualCost: Number(document.getElementById("icost").value) || 0
+      }
+    };
+    try { await fbSet("marketingConfig/thresholdNudge", next); toast("נשמר ✔"); }
+    catch (e) { toast(e.message); }
+  });
+
+  await loadStats(cfg.thresholdAmount);
+}
+
+async function loadStats(threshold) {
+  const weekAgo = Date.now() - 7 * 86400000;
+  const orders = (await fbList("orders")).filter(o => (o.ts || 0) >= weekAgo);
+  const total = orders.length;
+  const rewarded = orders.filter(o => o.thresholdReward && o.thresholdReward.rewarded).length;
+  const avg = total ? Math.round(orders.reduce((s, o) => s + (o.total || 0), 0) / total) : 0;
+  const avgRewarded = rewarded ? Math.round(orders.filter(o => o.thresholdReward).reduce((s, o) => s + (o.total || 0), 0) / rewarded) : 0;
+  const cost = orders.reduce((s, o) => s + (o.thresholdReward && o.thresholdReward.rewardCost || 0), 0);
+  document.getElementById("stats").innerHTML = `
+    <div class="grid cols-4">
+      ${kpi("📦", total, "הזמנות")}
+      ${kpi("🎁", rewarded + (total ? " (" + Math.round(rewarded / total * 100) + "%)" : ""), "קיבלו מתנה")}
+      ${kpi("💰", "₪" + avg, "AOV ממוצע")}
+      ${kpi("💸", "₪" + cost, "עלות שבועית")}
+    </div>
+    <div class="small muted" style="margin-top:0.5rem;">AOV של הזמנות שקיבלו מתנה: <strong>₪${avgRewarded}</strong> (סף ₪${threshold})</div>`;
+}
+function kpi(icon, num, lbl) { return `<div class="kpi"><div class="num">${icon} ${num}</div><div class="lbl">${lbl}</div></div>`; }
+
+requireAuth(init);
+</script>
+</body>
+</html>

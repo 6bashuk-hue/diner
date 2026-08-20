@@ -1,0 +1,24 @@
+{
+  "name": "ordering-site-template",
+  "version": "1.0.0",
+  "private": true,
+  "description": "White-label restaurant/food ordering site template — order site, admin KDS, and marketing system (Netlify Functions + Firebase Realtime DB)",
+  "scripts": {
+    "test": "jest"
+  },
+  "dependencies": {
+    "web-push": "^3.6.7"
+  },
+  "devDependencies": {
+    "jest": "^30.4.2"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "jest": {
+    "testEnvironment": "node",
+    "testMatch": [
+      "**/marketing/tests/**/*.test.js"
+    ]
+  }
+}

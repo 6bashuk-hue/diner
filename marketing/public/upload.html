@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>שתפו תמונה · הדיינר</title>
+  <script src="/site.config.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../admin/marketing.css">
+  <style>
+    body { background: linear-gradient(160deg, #fff7ef, #fbf7f2); }
+    .hero { text-align:center; padding: 1.5rem 1rem 0.5rem; }
+    .hero .logo { font-size: 2rem; font-weight: 800; color: var(--primary); }
+    .hero p { color: var(--muted); }
+    .preview { width: 100%; max-height: 280px; object-fit: contain; border-radius: 12px; display:none; margin-top:0.6rem; border:1px solid var(--border); }
+    .drop { border: 2px dashed var(--primary); border-radius: 14px; padding: 1.6rem; text-align:center; color: var(--primary-d); cursor:pointer; background: var(--surface); }
+    .check { display:flex; gap:0.5rem; align-items:flex-start; margin-top:0.8rem; }
+    .check input { width:auto; margin-top:0.2rem; }
+    #done { display:none; text-align:center; }
+    .coupon-note { background: var(--ok-bg); color: var(--ok); border-radius:10px; padding:0.8rem; margin-top:0.8rem; font-weight:600; }
+  </style>
+</head>
+<body>
+<div class="hero">
+  <div class="logo" id="upload-brand-name">🍔 הדיינר</div>
+  <p>אכלת אצלנו? שתף תמונה וקבל קופון הנחה 🎁</p>
+</div>
+
+<div class="mkt-wrap" style="max-width:520px;">
+  <div class="card" id="form-card">
+    <div class="drop" id="drop">
+      📷 לחצו כאן לצילום / בחירת תמונה
+      <input type="file" id="file" accept="image/*" capture="environment" style="display:none;">
+    </div>
+    <img id="preview" class="preview" alt="תצוגה מקדימה">
+
+    <label for="name">השם שלך *</label>
+    <input id="name" maxlength="60" placeholder="איך לקרוא לך?">
+
+    <label for="handle">שם משתמש באינסטגרם (לא חובה)</label>
+    <input id="handle" maxlength="40" placeholder="@username">
+
+    <div class="check">
+      <input type="checkbox" id="consent">
+      <label for="consent" id="upload-consent-label" style="margin:0;font-weight:400;">אני מאשר/ת לעסק לפרסם את התמונה ולתייג אותי</label>
+    </div>
+
+    <label for="note">משהו להוסיף? (לא חובה)</label>
+    <textarea id="note" rows="2" maxlength="280" placeholder="מה אהבת?"></textarea>
+
+    <div class="btn-row">
+      <button class="btn" id="submit" style="width:100%;">שליחה 🎁</button>
+    </div>
+    <p class="small muted" id="status" style="text-align:center;margin-top:0.6rem;"></p>
+  </div>
+
+  <div class="card" id="done">
+    <div style="font-size:2.4rem;">🎉</div>
+    <h2>תודה רבה!</h2>
+    <p class="muted">התמונה התקבלה. אחרי אישור קצר נשלח לך קופון הנחה.</p>
+    <div class="coupon-note" id="done-extra">שמור על העין — הקופון בדרך אליך 🍔</div>
+  </div>
+</div>
+
+<script>
+const params = new URLSearchParams(location.search);
+const orderKey = params.get("order") || "";
+let imageData = null;
+
+document.getElementById("upload-brand-name").textContent = "🍔 " + SITE_CONFIG.business.name;
+document.getElementById("upload-consent-label").textContent = "אני מאשר/ת ל" + SITE_CONFIG.business.name + " לפרסם את התמונה ולתייג אותי";
+
+// Personalize the greeting from the order, if we arrived with one.
+if (orderKey) {
+  fetch("/.netlify/functions/get-order", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ orderKey })
+  }).then(r => r.json()).then(d => {
+    if (d && d.found && d.name) {
+      document.querySelector(".hero p").textContent = `${d.name}, נהנית מהאוכל? שתף תמונה וקבל קופון 🎁`;
+    }
+  }).catch(() => {});
+}
+
+const fileInput = document.getElementById("file");
+const drop = document.getElementById("drop");
+const preview = document.getElementById("preview");
+
+drop.addEventListener("click", () => fileInput.click());
+fileInput.addEventListener("change", handleFile);
+
+async function handleFile() {
+  const file = fileInput.files[0];
+  if (!file) return;
+  setStatus("מעבד תמונה...");
+  try {
+    imageData = await compress(file);
+    preview.src = imageData; preview.style.display = "block";
+    drop.textContent = "✓ תמונה נבחרה — אפשר להחליף";
+    setStatus("");
+  } catch { setStatus("לא הצלחתי לטעון את התמונה, נסה אחרת."); }
+}
+
+// Resize to max 1280px and compress to JPEG, stepping quality down until < ~850KB.
+function compress(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const img = new Image();
+      img.onload = () => {
+        const max = 1280;
+        let { width, height } = img;
+        if (width > max || height > max) {
+          const r = Math.min(max / width, max / height);
+          width = Math.round(width * r); height = Math.round(height * r);
+        }
+        const canvas = document.createElement("canvas");
+        canvas.width = width; canvas.height = height;
+        canvas.getContext("2d").drawImage(img, 0, 0, width, height);
+        let q = 0.8, out = canvas.toDataURL("image/jpeg", q);
+        while (out.length > 850000 && q > 0.4) { q -= 0.1; out = canvas.toDataURL("image/jpeg", q); }
+        resolve(out);
+      };
+      img.onerror = reject;
+      img.src = reader.result;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+function setStatus(msg) { document.getElementById("status").textContent = msg; }
+
+document.getElementById("submit").addEventListener("click", async () => {
+  const name = document.getElementById("name").value.trim();
+  if (!imageData) { setStatus("צריך לבחור תמונה 📷"); return; }
+  if (!name) { setStatus("צריך למלא שם"); return; }
+
+  const btn = document.getElementById("submit");
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> שולח...';
+  try {
+    const res = await fetch("/.netlify/functions/ugc-submit", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        imageData, customerName: name,
+        customerHandle: document.getElementById("handle").value.trim(),
+        consentTag: document.getElementById("consent").checked,
+        note: document.getElementById("note").value.trim(),
+        orderKey
+      })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "שגיאה");
+    document.getElementById("form-card").style.display = "none";
+    document.getElementById("done").style.display = "block";
+  } catch (e) {
+    setStatus("שגיאה: " + e.message);
+    btn.disabled = false; btn.textContent = "שליחה 🎁";
+  }
+});
+</script>
+</body>
+</html>

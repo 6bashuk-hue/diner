@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>לקוחות · הדיינר</title>
+  <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="marketing.css">
+  <style>
+    table { width: 100%; border-collapse: collapse; font-size: 0.92rem; }
+    th, td { padding: 0.55rem 0.4rem; border-bottom: 1px solid var(--border); text-align: right; }
+    th { background: var(--surface-2); font-weight: 700; cursor: pointer; user-select: none; }
+    .tag-chip { display: inline-block; background: var(--primary); color: #fff; padding: 0.1rem 0.5rem; border-radius: 10px; font-size: 0.72rem; margin-right: 0.25rem; }
+    .tag-chip.vip { background: #b8860b; }
+    .tag-chip.high_value { background: #6a1b9a; }
+    .tag-chip.new { background: #28a745; }
+    .filter-row { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
+    .filter-row input, .filter-row select { width: auto; flex: 0 0 auto; padding: 0.45rem 0.6rem; }
+  </style>
+</head>
+<body>
+<div id="nav"></div>
+<div class="mkt-wrap">
+  <h1>👥 לקוחות</h1>
+  <div class="grid cols-4" id="kpis"></div>
+
+  <div class="card">
+    <div class="filter-row">
+      <input id="search" placeholder="חיפוש לפי שם או טלפון" style="min-width: 220px;">
+      <select id="tag-filter">
+        <option value="">כל התגיות</option>
+        <option value="new">חדש</option>
+        <option value="active">פעיל</option>
+        <option value="regular">קבוע</option>
+        <option value="vip">VIP</option>
+        <option value="high_value">AOV גבוה</option>
+        <option value="loyal">נאמן</option>
+        <option value="weekend_orderer">סופ"ש</option>
+      </select>
+      <select id="sort">
+        <option value="lastOrderAt">לפי הזמנה אחרונה</option>
+        <option value="totalOrders">לפי מספר הזמנות</option>
+        <option value="totalRevenue">לפי סה"כ הוצאה</option>
+        <option value="avgOrderValue">לפי AOV</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="card" style="padding: 0; overflow: auto;">
+    <table id="tbl">
+      <thead><tr>
+        <th>שם</th><th>טלפון</th><th>הזמנות</th><th>סה"כ</th><th>AOV</th><th>אחרונה</th><th>תיוג</th>
+      </tr></thead>
+      <tbody id="tbody"></tbody>
+    </table>
+  </div>
+</div>
+
+<script src="/site.config.js"></script>
+<script src="marketing-common.js"></script>
+<script>
+renderNav("customers.html");
+let all = [];
+
+async function init() {
+  all = await fbList("loyalty");
+  all = all.filter(c => c.phone || c.id);
+  renderKpis();
+  ["search","tag-filter","sort"].forEach(id => document.getElementById(id).addEventListener("input", render));
+  render();
+}
+
+function renderKpis() {
+  const total = all.length;
+  const weekAgo = Date.now() - 7 * 86400000;
+  const newWk  = all.filter(c => (c.firstOrderDate || c.lastOrderAt || 0) >= weekAgo).length;
+  const vip    = all.filter(c => (c.tags || []).includes("vip")).length;
+  const avgO   = total ? (all.reduce((s, c) => s + (c.totalOrders || 0), 0) / total).toFixed(1) : 0;
+  document.getElementById("kpis").innerHTML = `
+    ${kpi("👥", total, "סה\"כ לקוחות")}
+    ${kpi("✨", newWk, "חדשים השבוע")}
+    ${kpi("🏆", vip, "VIP")}
+    ${kpi("📦", avgO, "ממוצע הזמנות/לקוח")}`;
+}
+function kpi(icon, num, lbl) { return `<div class="kpi"><div class="num">${icon} ${num}</div><div class="lbl">${lbl}</div></div>`; }
+
+function render() {
+  const q = document.getElementById("search").value.trim();
+  const tag = document.getElementById("tag-filter").value;
+  const sortBy = document.getElementById("sort").value;
+  let rows = all.slice();
+  if (q) rows = rows.filter(c => (c.fullName || "").includes(q) || (c.id || "").includes(q));
+  if (tag) rows = rows.filter(c => (c.tags || []).includes(tag));
+  rows.sort((a, b) => (b[sortBy] || 0) - (a[sortBy] || 0));
+
+  const tbody = document.getElementById("tbody");
+  tbody.innerHTML = rows.length ? "" : '<tr><td colspan="7" class="muted small" style="text-align:center;padding:1rem;">אין לקוחות</td></tr>';
+  rows.slice(0, 200).forEach(c => {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${escapeHtml(c.fullName || "—")}</td>
+      <td dir="ltr" style="text-align:right;">${escapeHtml(c.id || "")}</td>
+      <td>${c.totalOrders || 0}</td>
+      <td>₪${c.totalRevenue || 0}</td>
+      <td>₪${c.avgOrderValue || 0}</td>
+      <td>${c.lastOrderAt ? fmtDate(c.lastOrderAt) : "—"}</td>
+      <td>${(c.tags || []).map(t => '<span class="tag-chip ' + t + '">' + t + '</span>').join("")}</td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+requireAuth(init);
+</script>
+</body>
+</html>

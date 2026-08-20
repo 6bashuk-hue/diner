@@ -1,0 +1,125 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+
+    "orders": {
+      ".read": true,
+      ".indexOn": ["ts"],
+      "$orderId": {
+        ".write": "newData.exists() || (data.exists() && (newData.child('status').val() == 'inprog' || newData.child('status').val() == 'done' || newData.child('wonGameCode').exists() || newData.child('wonGameAt').exists()))",
+        ".validate": "newData.hasChildren(['name','phone','total','ts']) && newData.child('total').isNumber() && newData.child('total').val() >= 0 && newData.child('ts').isNumber()"
+      }
+    },
+
+    "history": {
+      ".read": true,
+      "$dateKey": {
+        "$orderId": {
+          ".write": true
+        }
+      }
+    },
+
+    "coupons": {
+      ".read": true,
+      "$code": {
+        ".write": "!data.exists() || data.child('used').val() != true",
+        ".validate": "!newData.hasChild('value') || newData.child('value').isNumber()"
+      }
+    },
+
+    "menu": {
+      ".read": true,
+      ".write": true
+    },
+
+    "siteSettings": {
+      ".read": true,
+      ".write": true
+    },
+
+    "admin_state": {
+      ".read": true,
+      ".write": true
+    },
+
+    "promotions": {
+      ".read": true,
+      ".write": true
+    },
+
+    "marketingConfig": {
+      ".read": true,
+      ".write": true
+    },
+
+    "dailyQuiz": {
+      ".read": true,
+      ".write": true
+    },
+
+    "quizAttempts": {
+      ".read": true,
+      ".write": true
+    },
+
+    "referrals": {
+      ".read": true,
+      ".write": true
+    },
+
+    "groupOrders": {
+      ".read": true,
+      ".write": true
+    },
+
+    "loyalty": {
+      ".read": true,
+      ".write": true
+    },
+
+    "itemStats": {
+      ".read": true,
+      ".write": true
+    },
+
+    "reports": {
+      ".read": true,
+      ".write": true
+    },
+
+    "marketingPosts": {
+      ".read": true,
+      ".write": true
+    },
+
+    "marketingAssets": {
+      ".read": true,
+      ".write": true
+    },
+
+    "localResearch": {
+      ".read": true,
+      ".write": true
+    },
+
+    "consultations": {
+      ".read": true,
+      ".write": true
+    },
+
+    "consultationSummaries": {
+      ".read": true,
+      ".write": true
+    },
+
+    "ugcSubmissions": {
+      ".read": true,
+      ".write": true,
+      "$id": {
+        ".validate": "newData.hasChildren(['imageData','customerName','status','submittedAt']) && newData.child('imageData').isString() && newData.child('imageData').val().length < 1300000"
+      }
+    }
+  }
+}

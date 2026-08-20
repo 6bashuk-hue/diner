@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>המשווק שלי · הדיינר</title>
+  <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="marketing.css">
+  <style>
+    .topic-grid { display:grid; grid-template-columns:1fr 1fr; gap:0.5rem; margin:0.6rem 0; }
+    .check-line { display:flex; gap:0.5rem; align-items:center; font-weight:400; margin:0.3rem 0; }
+    .check-line input { width:auto; }
+  </style>
+</head>
+<body>
+<div id="nav"></div>
+<div class="mkt-wrap">
+  <h1>💬 שיחה עם המשווק שלי</h1>
+  <p class="muted small">מכינים הקשר מלא עם הדאטה שלך → מעתיקים → פותחים שיחה ב-Claude. בלי עלויות API.</p>
+
+  <div class="card">
+    <h2>על מה לדבר?</h2>
+    <div class="topic-grid">
+      <button class="btn ghost" data-t="idea">💡 רעיון לפוסט</button>
+      <button class="btn ghost" data-t="analysis">📊 ניתוח ביצועים</button>
+      <button class="btn ghost" data-t="plan">🎯 תוכנית חודשית</button>
+      <button class="btn ghost" data-t="problem">🆘 בעיה - תייעץ</button>
+    </div>
+    <label for="question">או נסח שאלה משלך</label>
+    <textarea id="question" rows="3" placeholder="לדוגמה: ימי שני בירידה בשבועות האחרונים, מה לעשות?"></textarea>
+
+    <label>איזה דאטה לכלול?</label>
+    <label class="check-line"><input type="checkbox" id="incOrders" checked> הזמנות אחרונות (מנות מובילות, שעות שיא)</label>
+    <label class="check-line"><input type="checkbox" id="incPosts" checked> פוסטים אחרונים + ביצועים</label>
+    <label class="check-line"><input type="checkbox" id="incUGC"> מאגר UGC זמין</label>
+    <label class="check-line"><input type="checkbox" id="incResearch" checked> מחקר מקומי שאספתי</label>
+  </div>
+
+  <div class="card">
+    <h2>צור הקשר ופתח Claude</h2>
+    <div class="btn-row">
+      <button class="btn" id="prep-btn">🚀 הכן ופתח שיחה</button>
+      <button class="btn ghost" id="copy-btn" style="display:none;">📋 העתק שוב</button>
+    </div>
+    <div id="preview" style="display:none;"><div class="copy-box" id="ctx-box"></div></div>
+  </div>
+
+  <div class="card" style="background:var(--surface-2)">
+    <h2>אחרי השיחה — שמור סיכום</h2>
+    <p class="small">הדבק כאן את ההחלטות החשובות מהשיחה, כדי שיישמרו לזיכרון.</p>
+    <textarea id="summary" rows="3" placeholder="לדוגמה: החלטתי לעשות מבצע קבוע בימי שני..."></textarea>
+    <div class="btn-row"><button class="btn" id="save-sum">💾 שמור סיכום</button></div>
+    <div id="sum-msg"></div>
+    <h3>סיכומים אחרונים</h3>
+    <div id="summaries"><div class="muted small">טוען...</div></div>
+  </div>
+</div>
+
+<script src="/site.config.js"></script>
+<script src="prompt-fragments.js"></script>
+<script src="marketing-common.js"></script>
+<script>
+renderNav("consultant-bridge.html");
+let selectedTopic = null;
+let currentContext = "";
+
+const TEMPLATES = {
+  idea: "תן לי 5 רעיונות לפוסט לשבוע הקרוב, מבוססים על הדאטה שלי",
+  analysis: "נתח לי את הביצועים השבוע - מה עבד, מה לא, ומה לשנות",
+  plan: "בנה לי תוכנית שיווק לחודש הקרוב - 4 פוסטים בשבוע, מגוון נושאים",
+  problem: "יש לי בעיה: "
+};
+
+async function init() {
+  document.querySelectorAll(".topic-grid button").forEach(b =>
+    b.addEventListener("click", () => { selectedTopic = b.dataset.t; document.getElementById("question").value = TEMPLATES[b.dataset.t]; }));
+  document.getElementById("prep-btn").addEventListener("click", prepare);
+  document.getElementById("copy-btn").addEventListener("click", () => copyText(currentContext));
+  document.getElementById("save-sum").addEventListener("click", saveSummary);
+  await loadSummaries();
+}
+
+async function prepare() {
+  const question = document.getElementById("question").value.trim();
+  if (!question) { toast("נסח שאלה"); return; }
+  const btn = document.getElementById("prep-btn");
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> מכין...';
+  try {
+    const data = await api("get-consultant-context", {
+      includeOrders: document.getElementById("incOrders").checked,
+      includePosts: document.getElementById("incPosts").checked,
+      includeUGC: document.getElementById("incUGC").checked,
+      includeResearch: document.getElementById("incResearch").checked
+    });
+    currentContext = buildPrompt(question, data);
+    document.getElementById("ctx-box").textContent = currentContext;
+    document.getElementById("preview").style.display = "block";
+    document.getElementById("copy-btn").style.display = "inline-flex";
+    copyText(currentContext);
+    window.open("https://claude.ai/new", "_blank", "noopener");
+  } catch (e) { toast(e.message); }
+  finally { btn.disabled = false; btn.textContent = "🚀 הכן ופתח שיחה"; }
+}
+
+function buildPrompt(question, data) {
+  const b = data.brand, a = data.local;
+  let p = `${PromptFragments.buildBrandHeader(b, "advisor")}
+
+## תפקידך
+- מומחה שיווק עולמי, 20 שנות ניסיון, מתמחה ב${b.location} ובשיווק מסעדות
+- ישיר, אמין, לא מתחנף; מאתגר רעיונות חלשים; נותן צעדים קונקרטיים
+- שואל שאלות מבררות אם חסר מידע
+
+## על העסק
+${b.story}
+
+## הקהל
+${b.audience.weekdays.join(", ")} (אמצע שבוע); ${b.audience.weekends.join(", ")} (סופ"ש).
+${PromptFragments.buildSensitiveTopicBlock(b)}
+## ${b.location}
+${a.history.foundingSpirit}
+המתחרה: ${a.competitiveLandscape.pizzaPlaces.join(", ")}`;
+
+  if (data.orders) {
+    const top = (data.orders.topItems || []).slice(0, 5).map(([name, c]) => `${name} (${c})`).join(", ");
+    const hrs = (data.orders.peakHours || []).slice(0, 3).map(([h, c]) => `${h}:00 (${c})`).join(", ");
+    p += `
+
+## הזמנות אחרונות
+- מחזור: ${data.orders.totalRevenue}₪; ממוצע הזמנה: ${data.orders.avgOrder}₪; מספר הזמנות: ${data.orders.totalOrders}
+- מנות מובילות: ${top || "—"}
+- שעות שיא: ${hrs || "—"}`;
+  }
+  if (data.posts && data.posts.length) {
+    p += `
+
+## פוסטים אחרונים
+${data.posts.map(post => `- "${((post.content && post.content.text) || "").substring(0, 80)}..." - ${(post.manualAnalytics && post.manualAnalytics.likes) || "?"} לייקים`).join("\n")}`;
+  }
+  if (data.ugc) p += `\n\n## UGC זמין: ${data.ugc.length} תמונות לקוחות מאושרות`;
+  if (data.research && data.research.length) {
+    p += `
+
+## פוסטים מצליחים מ${b.location} שאספתי
+${data.research.slice(0, 5).map((r, i) => `${i + 1}. "${r.businessName}": ${(r.postText || "").substring(0, 150)}...`).join("\n")}`;
+  }
+
+  p += `
+
+## השאלה שלי
+${question}
+
+---
+תן תשובה מובנית: (1) חוות דעת קצרה, (2) הרציונל, (3) 3-5 צעדים קונקרטיים, (4) שאלה אחת להמשך.
+אם חסר לך מידע - שאל אותי לפני שתענה.`;
+  return p;
+}
+
+async function saveSummary() {
+  const summary = document.getElementById("summary").value.trim();
+  if (!summary) { toast("הזן סיכום"); return; }
+  try {
+    await api("save-consultation-summary", { summary, question: document.getElementById("question").value, topic: selectedTopic, timestamp: Date.now() });
+    document.getElementById("sum-msg").innerHTML = '<div class="card" style="background:var(--ok-bg);color:var(--ok);margin-top:0.6rem;">✅ נשמר</div>';
+    document.getElementById("summary").value = "";
+    await loadSummaries();
+  } catch (e) { toast(e.message); }
+}
+
+async function loadSummaries() {
+  let rows = [];
+  try { rows = await fbList("consultationSummaries"); } catch {}
+  rows.sort((x, y) => (y.timestamp || 0) - (x.timestamp || 0));
+  const host = document.getElementById("summaries");
+  host.innerHTML = rows.length ? "" : '<div class="muted small">אין סיכומים עדיין</div>';
+  rows.slice(0, 10).forEach(r => {
+    const d = document.createElement("div"); d.className = "card"; d.style.padding = "0.7rem";
+    d.innerHTML = `<div class="small muted">${fmtDateTime(r.timestamp)}${r.question ? " · " + escapeHtml(String(r.question).slice(0, 50)) : ""}</div>
+      <div style="white-space:pre-wrap;margin-top:0.3rem;">${escapeHtml(r.summary)}</div>`;
+    host.appendChild(d);
+  });
+}
+
+requireAuth(init);
+</script>
+</body>
+</html>
