@@ -256,6 +256,7 @@
         padding: 0.3rem 0.85rem; border-radius: 0 8px 0 12px;
     }
     /* GUEST MENUS — dishes from neighboring businesses, added to the same order */
+    .guest-menu-intro { text-align: center; color: var(--gray); font-size: 0.88rem; margin: -0.6rem 0 1rem; }
     .guest-source { background: var(--white); border: 2px solid var(--teal); border-radius: 12px; margin-bottom: 0.9rem; overflow: hidden; }
     .guest-source-head {
         display: flex; align-items: center; justify-content: space-between; gap: 0.6rem;
@@ -949,8 +950,9 @@
         <div class="section-title">משקאות</div>
         <div class="menu-grid" id="grid-drinks"></div>
 
-        <!-- GUEST MENUS — dishes from neighboring businesses (same order, same ticket).
-             Each source renders its own "הוספה מ..." header — see renderGuestMenus(). -->
+        <!-- GUEST MENUS — dishes from neighboring businesses (same order, same ticket) -->
+        <div class="section-title">עוד מהשכונה</div>
+        <p class="guest-menu-intro">מזמינים מהדיינר? אפשר להוסיף גם מנה מהשכנים בשוק — הכל מגיע יחד באותה הזמנה.</p>
         <div id="guest-menus"></div>
 
         <!-- CART -->
@@ -1559,13 +1561,10 @@ function renderGuestMenus() {
             return '<div class="guest-section-label">' + escAttr(sec.label) + '</div>' +
                 (sec.items || []).map(item => guestItemRow(src.key, item, hasExtras)).join("");
         }).join("");
-        // "מ-6 בשוק" needs the maqaf before a leading digit; "מאדלה בשוק" reads fine
-        // with the prefix attached directly.
-        const label = (/^\d/.test(src.name) ? "הוספה מ-" : "הוספה מ") + src.name;
         return (
             '<div class="guest-source' + (open ? ' open' : '') + '" data-src="' + escAttr(src.key) + '">' +
                 '<div class="guest-source-head" onclick="toggleGuestSource(\'' + src.key + '\')">' +
-                    '<span class="guest-source-name">🏪 ' + escAttr(label) + '</span>' +
+                    '<span class="guest-source-name">🏪 ' + escAttr(src.name) + '</span>' +
                     '<span class="guest-source-toggle">▾ ' + (open ? "סגור" : "הצג תפריט") + '</span>' +
                 '</div>' +
                 '<div class="guest-source-body">' + body + '</div>' +
