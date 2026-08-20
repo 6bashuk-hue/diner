@@ -109,6 +109,16 @@
               { name: "פיצת אנשובי", desc: "רוטב עגבניות, מוצרלה, בצל סגול, אנשובי וצלפים", price: 66 },
               { name: "פיצת מלך היער", desc: "רוטב מלך היער על בסיס מסקרפונה ופרמזן, מוצרלה, שמפיניון, פורטובלו ופטרוזיליה", price: 66 },
               { name: "פיצת טרטופו", desc: "רוטב מלך היער על בסיס מסקרפונה ופרמזן, מוצרלה, פטריות פורטובלו ושמפיניון, מחית כמהין שחור, ערמונים קלויים ופטרוזיליה", price: 72 }
+            ],
+            // Pizza toppings ("שדרגו את הפיצה" on the printed menu) — same qty +/- format
+            // as the diner's own burger extras. Two names ("פטריות", "בצל מקורמל") are
+            // disambiguated with a "(פיצה)" suffix because the diner's own siteSettings/extras
+            // already uses those exact names at a different price — place-order.js prices
+            // every extra name from a single flat map, so an unqualified collision would
+            // silently charge the diner's price instead of the neighbor's real one.
+            extraGroups: [
+              { label: "תוספות רגילות", price: 7, items: ["קלמטה", "בצל סגול", "פטריות (פיצה)", "חלפיניו", "עגבניות שרי"] },
+              { label: "תוספות פרימיום", price: 12, items: ["גבינת עיזים", "ארטישוק", "פרמזן", "מוצרלה נוספת", "גבינה טבעונית (פיצה)", "ערמונים קלויים", "בצל מקורמל (פיצה)"] }
             ]
           },
           {

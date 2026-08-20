@@ -256,7 +256,6 @@
         padding: 0.3rem 0.85rem; border-radius: 0 8px 0 12px;
     }
     /* GUEST MENUS — dishes from neighboring businesses, added to the same order */
-    .guest-menu-intro { text-align: center; color: var(--gray); font-size: 0.88rem; margin: -0.6rem 0 1rem; }
     .guest-source { background: var(--white); border: 2px solid var(--teal); border-radius: 12px; margin-bottom: 0.9rem; overflow: hidden; }
     .guest-source-head {
         display: flex; align-items: center; justify-content: space-between; gap: 0.6rem;
@@ -950,9 +949,8 @@
         <div class="section-title">משקאות</div>
         <div class="menu-grid" id="grid-drinks"></div>
 
-        <!-- GUEST MENUS — dishes from neighboring businesses (same order, same ticket) -->
-        <div class="section-title">עוד מהשכונה</div>
-        <p class="guest-menu-intro">מזמינים מהדיינר? אפשר להוסיף גם מנה מהשכנים בשוק — הכל מגיע יחד באותה הזמנה.</p>
+        <!-- GUEST MENUS — dishes from neighboring businesses (same order, same ticket).
+             Each source renders its own "הוספה מ..." header — see renderGuestMenus(). -->
         <div id="guest-menus"></div>
 
         <!-- CART -->
@@ -1319,6 +1317,10 @@ let modalChoice = null;   // selected option for items that offer a choice (coup
 let modalMealDrink = {};  // { [extraName]: chosen soft-drink } for meal-upgrade extras (group "meal")
 // Soft drinks offered free with the meal-upgrade extra (no beer — that's paid separately).
 const MEAL_DRINK_OPTIONS = ["קולה", "קולה זירו", "ספרייט", "ספרייט זירו"];
+// Guest-item modal state — set only while the extras modal is open for a dish added
+// from a neighboring business's menu (see openGuestModal / GUEST_MENUS below).
+let modalGuestSrc = null;          // { key, name } of the guest source, or null
+let modalGuestExtraGroups = [];    // that dish's topping groups (e.g. 6 בשוק's pizza toppings)
 let soldOut     = new Set();
 let isBusy      = false;
 let deliveryOn  = true;
@@ -1552,14 +1554,18 @@ function renderGuestMenus() {
     if (!el) return;
     el.innerHTML = GUEST_MENUS.map(src => {
         const open = guestOpenSources.has(src.key);
-        const body = (src.sections || []).map(sec =>
-            '<div class="guest-section-label">' + escAttr(sec.label) + '</div>' +
-            (sec.items || []).map(item => guestItemRow(src.key, item)).join("")
-        ).join("");
+        const body = (src.sections || []).map(sec => {
+            const hasExtras = !!(sec.extraGroups && sec.extraGroups.length);
+            return '<div class="guest-section-label">' + escAttr(sec.label) + '</div>' +
+                (sec.items || []).map(item => guestItemRow(src.key, item, hasExtras)).join("");
+        }).join("");
+        // "מ-6 בשוק" needs the maqaf before a leading digit; "מאדלה בשוק" reads fine
+        // with the prefix attached directly.
+        const label = (/^\d/.test(src.name) ? "הוספה מ-" : "הוספה מ") + src.name;
         return (
             '<div class="guest-source' + (open ? ' open' : '') + '" data-src="' + escAttr(src.key) + '">' +
                 '<div class="guest-source-head" onclick="toggleGuestSource(\'' + src.key + '\')">' +
-                    '<span class="guest-source-name">🏪 ' + escAttr(src.name) + '</span>' +
+                    '<span class="guest-source-name">🏪 ' + escAttr(label) + '</span>' +
                     '<span class="guest-source-toggle">▾ ' + (open ? "סגור" : "הצג תפריט") + '</span>' +
                 '</div>' +
                 '<div class="guest-source-body">' + body + '</div>' +
@@ -1574,16 +1580,19 @@ function toggleGuestSource(key) {
     renderGuestMenus();
 }
 
-function guestItemRow(srcKey, item) {
+function guestItemRow(srcKey, item, hasExtras) {
     const safeSrc  = String(srcKey).replace(/\\/g, "\\\\").replace(/'/g, "\\'");
     const safeName = String(item.name).replace(/\\/g, "\\\\").replace(/'/g, "\\'");
+    const onclick = hasExtras
+        ? "openGuestModal('" + safeSrc + "','" + safeName + "')"
+        : "addGuestItem('" + safeSrc + "','" + safeName + "')";
     return (
         '<div class="guest-item-row">' +
             '<div><div class="guest-item-name">' + escAttr(item.name) + '</div>' +
             (item.desc ? '<div class="guest-item-desc">' + escAttr(item.desc) + '</div>' : '') + '</div>' +
             '<div class="guest-item-side">' +
                 '<span class="guest-item-price">' + item.price + ' ₪</span>' +
-                '<button class="guest-add-btn" onclick="addGuestItem(\'' + safeSrc + '\',\'' + safeName + '\')">+ הוסף</button>' +
+                '<button class="guest-add-btn" onclick="' + onclick + '">+ הוסף</button>' +
             '</div>' +
         '</div>'
     );
@@ -1604,6 +1613,42 @@ function addGuestItem(srcKey, itemName) {
     });
     updateCart();
     toast("✅ " + item.name + " (" + src.name + ") נוסף לעגלה");
+}
+
+// Guest dishes that carry topping groups (currently 6 בשוק's pizzas) open the same
+// extras modal as the diner's own menu, populated with that dish's own topping groups
+// instead of EXTRAS_GROUPS — same qty +/- UI, priced from SITE_CONFIG.guestMenus.
+function openGuestModal(srcKey, itemName) {
+    const src = GUEST_MENUS.find(s => s.key === srcKey);
+    if (!src) return;
+    let item = null, section = null;
+    (src.sections || []).forEach(sec => {
+        const found = (sec.items || []).find(i => i.name === itemName);
+        if (found) { item = found; section = sec; }
+    });
+    if (!item) return;
+
+    modalItem   = { name: item.name, desc: item.desc || "", price: item.price, choices: null };
+    modalExtras = {};
+    modalQty    = 1;
+    modalChoice = null;
+    modalMealDrink = {};
+    modalGuestSrc = { key: src.key, name: src.name };
+    modalGuestExtraGroups = (section && section.extraGroups) || [];
+
+    document.getElementById("modal-name").textContent = modalItem.name;
+    document.getElementById("modal-desc").textContent = modalItem.desc;
+    document.getElementById("modal-notes").value = "";
+    document.getElementById("modal-qty").textContent = "1";
+
+    const container = document.getElementById("modal-extras");
+    container.innerHTML = modalGuestExtraGroups.map(g =>
+        '<div class="extras-title">' + escAttr(g.label) + ' (+' + g.price + ' ₪)</div>' +
+        (g.items || []).map(name => extraRow({ n: name, p: g.price })).join("")
+    ).join("");
+
+    updateModalBtn();
+    presentSheet(extrasPanelEl, extrasOverlayEl);
 }
 
 // Burgers grid: chef's recommendation pinned on top, couple's meal at the bottom.
@@ -1782,6 +1827,8 @@ function openModal(idx) {
     modalQty    = 1;
     modalChoice = null;
     modalMealDrink = {};
+    modalGuestSrc = null;
+    modalGuestExtraGroups = [];
     document.getElementById("modal-name").textContent = modalItem.name;
     document.getElementById("modal-desc").textContent = modalItem.desc || "";
     document.getElementById("modal-notes").value = "";
@@ -1914,6 +1961,8 @@ function updateModalBtn() {
 
 function closeModal() {
     modalItem = null;
+    modalGuestSrc = null;
+    modalGuestExtraGroups = [];
     dismissSheet(extrasPanelEl, extrasOverlayEl);
 }
 document.getElementById("extras-modal").addEventListener("click", function(e) {
@@ -1948,7 +1997,8 @@ function confirmAdd() {
             choice:    choices.length ? modalChoice : "",
             extras:    sel,
             notes:     document.getElementById("modal-notes").value.trim(),
-            total:     unitPrice
+            total:     unitPrice,
+            guestSource: modalGuestSrc ? modalGuestSrc.name : undefined
         });
     }
     const addedName = modalItem.name; // read before closeModal() nulls modalItem

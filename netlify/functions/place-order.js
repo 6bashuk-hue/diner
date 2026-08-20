@@ -96,6 +96,25 @@ function flattenGuestPrices(guestMenus) {
   return map;
 }
 
+// Build {name -> price} from each guest section's extraGroups (e.g. 6 בשוק's pizza
+// toppings) — same trusted-source treatment as flattenPrices(siteSettings/extras) for
+// the diner's own extras. Topping names that collide with the diner's own extras pool
+// are deliberately disambiguated in site.config.js (a "(פיצה)" suffix) so this map and
+// extraPrices never need a priority order between them.
+function flattenGuestExtraPrices(guestMenus) {
+  const map = new Map();
+  (Array.isArray(guestMenus) ? guestMenus : []).forEach(src => {
+    (Array.isArray(src.sections) ? src.sections : []).forEach(sec => {
+      (Array.isArray(sec.extraGroups) ? sec.extraGroups : []).forEach(g => {
+        (Array.isArray(g.items) ? g.items : []).forEach(name => {
+          if (name != null && Number.isFinite(Number(g.price))) map.set(String(name), Number(g.price));
+        });
+      });
+    });
+  });
+  return map;
+}
+
 async function sendTelegram(message) {
   const { TG_TOKEN, TG_CHAT } = process.env;
   if (!TG_TOKEN || !TG_CHAT) return;
@@ -144,6 +163,7 @@ exports.handler = async (event) => {
   const menuPrices = flattenPrices(menuNode);
   const extraPrices = flattenPrices(extrasNode);
   const guestPrices = flattenGuestPrices(SITE_CONFIG.guestMenus);
+  const guestExtraPrices = flattenGuestExtraPrices(SITE_CONFIG.guestMenus);
   const soldOut = new Set((adminState && Array.isArray(adminState.soldOut)) ? adminState.soldOut : []);
 
   // If the menu can't be read at all, fall back to trusting client basePrice rather
@@ -177,7 +197,10 @@ exports.handler = async (event) => {
     const extras = (Array.isArray(raw.extras) ? raw.extras : []).slice(0, 30).map(e => {
       const en = String(e && e.name || "").slice(0, 80);
       const qty = Math.max(1, Math.min(20, Math.floor(Number(e && e.qty) || 1)));
-      const price = menuLoaded && extraPrices.has(en) ? extraPrices.get(en) : Math.max(0, Number(e && e.price) || 0);
+      let price;
+      if (menuLoaded && extraPrices.has(en)) price = extraPrices.get(en);
+      else if (guestExtraPrices.has(en)) price = guestExtraPrices.get(en);
+      else price = Math.max(0, Number(e && e.price) || 0);
       const choice = String(e && e.choice || "").slice(0, 40);
       const entry = { name: en, qty, price };
       if (choice) entry.choice = choice;
