@@ -34,6 +34,19 @@
 
 `FB_URL` נחוץ ל-`mint-win-coupon` (פונקציית הקופונים החדשה). ללא זה, המשחק יחזור לנתיב fallback מצד הלקוח.
 
+### סריקת הסודות של Netlify (Secrets Scanning)
+
+`netlify.toml` מגדיר שני חריגים מכוונים, וחשוב לא להרחיב אותם:
+
+- `SECRETS_SCAN_OMIT_KEYS = "FB_URL"` — כתובת ה-Realtime DB גלויה ממילא לכל דפדפן.
+- `SECRETS_SCAN_SMART_DETECTION_OMIT_VALUES` — מפתח ה-Web API של Firebase
+  (`site.config.js` → `firebase.apiKey`). זהו מזהה פרויקט ציבורי שחייב להישלח
+  לדפדפן; ההגנה בפועל היא חוקי ה-Realtime Database.
+
+`ADMIN_PASSWORD` ושאר הסודות **נשארים תחת סריקה מלאה** — הם נקראים רק ב-Netlify
+Functions דרך `process.env`, ואסור שיופיעו בשום קובץ במאגר. אם בנייה נכשלת על
+סוד אמיתי — מסירים את הערך מהקוד ומחליפים אותו, לא מוסיפים אותו לרשימת החריגים.
+
 ## 3. ידוע ולא נפתר
 
 - **הסיסמה של האדמין נבדקת בצד שרת אבל הפעולות הולכות ישר ל-Firebase.** משתמש זדוני שעקף את ה-login יכול עדיין למחוק הזמנות. החוקים החדשים מקשים על זה אבל לא מבטלים. הפתרון המלא: Firebase Auth + custom claims.

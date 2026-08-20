@@ -7,6 +7,14 @@
   # any client can see in DevTools, not a secret.
   SECRETS_SCAN_OMIT_KEYS = "FB_URL"
 
+  # Firebase Web API key (site.config.js -> firebase.apiKey). Netlify's smart
+  # detection flags the "AIza..." shape as a Google API key, but a Firebase Web
+  # API key is a public project identifier by design: it must ship to the
+  # browser, it grants no access on its own, and access is enforced by the
+  # Realtime Database rules in firebase-rules.locked.json. Safelisting just this
+  # one string keeps smart detection active for everything else.
+  SECRETS_SCAN_SMART_DETECTION_OMIT_VALUES = "AIzaSyCkU4ZOcXzaZBxs6sdDy4wLOl44879UBJo"
+
 [[headers]]
   for = "/.netlify/functions/*"
   [headers.values]
