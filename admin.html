@@ -191,6 +191,7 @@ body {
 }
 .card-item:last-child { border-bottom: none; }
 .card-item-extras { font-size: 0.78rem; color: var(--muted); font-weight: 400; }
+.card-item-guest { font-size: 0.78rem; color: #38bdf8; font-weight: 700; }
 .card-item-notes  { font-size: 0.78rem; color: var(--warning); font-weight: 400; }
 
 .card-footer { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; flex-wrap: wrap; }
@@ -867,7 +868,7 @@ function renderColumn(colId, emptyId, cntId, orders, status) {
         const sig  = orderSignature(orders[key]);
         if (existing) {
             if (existing.dataset.sig !== sig) {
-                // Data changed (e.g. dough-game win added a wonGameCode): replace card
+                // Data changed: replace card
                 const div = document.createElement('div');
                 div.innerHTML = html;
                 const card = div.firstElementChild;
@@ -890,20 +891,22 @@ function renderColumn(colId, emptyId, cntId, orders, status) {
 
 function orderSignature(o) {
     // Cheap signature of fields that affect rendering — used to detect when
-    // an existing card needs a re-render (e.g. dough-game win wrote wonGameCode).
-    return [o.status || '', o.wonGameCode || '', o.couponCode || '', o.payment || '',
+    // an existing card needs a re-render.
+    return [o.status || '', o.couponCode || '', o.payment || '',
             o.total || 0, (o.items || []).length].join('|');
 }
 
 function buildCard(key, o, status) {
     const isDelivery = o.type === 'משלוח';
     const itemsHtml  = (o.items || []).map(item => {
-        const extras = (item.extras || []).map(e => escapeHtml(e.name) + (e.qty > 1 ? ` ×${e.qty}` : '')).join(', ');
+        const extras = (item.extras || []).map(e => escapeHtml(e.name) + (e.qty > 1 ? ` ×${e.qty}` : '') + (e.choice ? ` (${escapeHtml(e.choice)})` : '')).join(', ');
         const choice = item.choice ? `<div class="card-item-extras">🍔 ${escapeHtml(item.choice)}</div>` : '';
+        const guest  = item.guestSource ? `<div class="card-item-guest">🏪 מ-${escapeHtml(item.guestSource)}</div>` : '';
         const notes  = item.notes ? `<div class="card-item-notes">📝 ${escapeHtml(item.notes)}</div>` : '';
         return `<div class="card-item">
             ${escapeHtml(item.name)}${item.qty > 1 ? ` ×${item.qty}` : ''}
             ${choice}
+            ${guest}
             ${extras ? `<div class="card-item-extras">+ ${extras}</div>` : ''}
             ${notes}
         </div>`;
@@ -940,7 +943,6 @@ function buildCard(key, o, status) {
         </div>
         <div class="card-items">${itemsHtml}</div>
         ${o.couponCode ? `<div style="font-size:0.8rem; color:var(--muted); margin-bottom:0.5rem;">🎟 קופון: ${escapeHtml(o.couponCode)} (-${Number(o.discount)||0} ₪)</div>` : ''}
-        ${o.wonGameCode ? `<div style="font-size:0.8rem; color:#fbbf24; margin-bottom:0.5rem;">🏆 זכה במשחק! קוד אישי: <strong>${escapeHtml(o.wonGameCode)}</strong></div>` : ''}
         ${o.payment === 'cash'
             ? `<div style="font-size:0.85rem; color:var(--success); margin-bottom:0.5rem; font-weight:700;">💵 מזומן — אין צורך להתקשר</div>`
             : `<div style="font-size:0.85rem; color:var(--warning); margin-bottom:0.5rem; font-weight:700;">💳 אשראי טלפוני — להתקשר ללקוח</div>`}
@@ -1099,9 +1101,10 @@ window.addEventListener('afterprint', () => finishPrint(true));
 function buildReceiptHtml(o) {
     const date = new Date(o.ts || Date.now()).toLocaleString('he-IL', { timeZone:'Asia/Jerusalem' });
     const itemsHtml = (o.items || []).map(i => {
-        const extras = (i.extras || []).map(e => e.name + (e.qty > 1 ? ' ×' + e.qty : '')).join(', ');
+        const extras = (i.extras || []).map(e => e.name + (e.qty > 1 ? ' ×' + e.qty : '') + (e.choice ? ' (' + e.choice + ')' : '')).join(', ');
         return '<div class="r-item">' +
             '<div class="r-row r-bold"><span>' + escapeHtml(i.name) + '</span><span>' + (i.basePrice || 0) + ' ₪</span></div>' +
+            (i.guestSource ? '<div class="r-extras">🏪 מ-' + escapeHtml(i.guestSource) + '</div>' : '') +
             (i.choice ? '<div class="r-extras">🍔 ' + escapeHtml(i.choice) + '</div>' : '') +
             (extras ? '<div class="r-extras">+ ' + escapeHtml(extras) + '</div>' : '') +
             (i.notes  ? '<div class="r-notes">📝 ' + escapeHtml(i.notes) + '</div>' : '') +
@@ -1121,7 +1124,6 @@ function buildReceiptHtml(o) {
         '<div class="r-hr"></div>' +
         (o.couponCode ? '<div class="r-row"><span>🎟 ' + escapeHtml(o.couponCode) + '</span><span>-' + (o.discount || 0) + ' ₪</span></div>' : '') +
         '<div class="r-row r-big"><span>סה״כ:</span><span>' + (o.total || 0) + ' ₪</span></div>' +
-        (o.wonGameCode ? '<div class="r-win">🏆 זכה במשחק! קוד: ' + escapeHtml(o.wonGameCode) + '</div>' : '') +
         '<div class="r-foot">תודה ובתיאבון!</div>'
     );
 }
@@ -1291,15 +1293,15 @@ async function printOrder(key) {
     hr();
     (o.items || []).forEach(i => {
       rowRL(i.name || "", ((Number(i.basePrice) || 0)) + " ₪", 27, true);
-      if (i.choice) right("פיצה: " + i.choice, 21, false);
-      const extras = (i.extras || []).map(e => e.name + (Number(e.qty) > 1 ? " ×" + e.qty : "")).join(", ");
+      if (i.guestSource) right("🏪 מ-" + i.guestSource, 21, true);
+      if (i.choice) right("בחירה: " + i.choice, 21, false);
+      const extras = (i.extras || []).map(e => e.name + (Number(e.qty) > 1 ? " ×" + e.qty : "") + (e.choice ? " (" + e.choice + ")" : "")).join(", ");
       if (extras) right("+ " + extras, 21, false);
       if (i.notes) right("הערה: " + i.notes, 21, false);
     });
     hr();
     if (o.couponCode) rowRL(o.couponCode, "-" + (Number(o.discount) || 0) + " ₪", 24, false);
     rowRL('סה"כ:', (Number(o.total) || 0) + " ₪", 36, true);
-    if (o.wonGameCode) { y += 4; right("זכה במשחק! קוד: " + o.wonGameCode, 24, true); }
     y += 6; center("תודה ובתיאבון!", 22, false);
     y += 8;
     return { canvas: cv, height: Math.min(cv.height, Math.ceil(y)) };

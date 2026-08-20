@@ -1,6 +1,6 @@
 // marketing/lib/fb.js
 // Thin Firebase Realtime Database REST client, matching the pattern already used by
-// the existing functions (send-order, mint-win-coupon, daily-backup).
+// the existing functions (send-order, daily-backup).
 //
 // Required env: FB_URL  (e.g. https://YOUR-PROJECT-default-rtdb.REGION.firebasedatabase.app/)
 // Optional env: FB_SECRET — a legacy database secret / auth token. When set it is appended

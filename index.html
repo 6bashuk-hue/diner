@@ -127,15 +127,6 @@
     .promo-banner .promo-title { font-weight: 900; }
     .promo-banner .promo-desc { font-weight: 400; font-size: 0.85rem; opacity: 0.95; }
 
-    /* WINNERS BANNER (social proof) */
-    .winners-banner {
-        background: #1f2a14; border: 1px solid #4ade80; color: #d4f5be;
-        text-align: center; padding: 0.5rem 1rem; font-size: 0.85rem;
-        border-radius: 0; display: none;
-    }
-    .winners-banner.visible { display: block; }
-    .winners-banner strong { color: #ffd700; }
-
     /* LOYALTY CARD on the homepage */
     .loyalty-card {
         background: linear-gradient(135deg, #fffdf7, #f7f1e7);
@@ -264,6 +255,28 @@
         font-size: 0.75rem; font-weight: 800; letter-spacing: 0.5px;
         padding: 0.3rem 0.85rem; border-radius: 0 8px 0 12px;
     }
+    /* GUEST MENUS — dishes from neighboring businesses, added to the same order */
+    .guest-menu-intro { text-align: center; color: var(--gray); font-size: 0.88rem; margin: -0.6rem 0 1rem; }
+    .guest-source { background: var(--white); border: 2px solid var(--teal); border-radius: 12px; margin-bottom: 0.9rem; overflow: hidden; }
+    .guest-source-head {
+        display: flex; align-items: center; justify-content: space-between; gap: 0.6rem;
+        padding: 0.8rem 1rem; cursor: pointer; background: #e9f6f6;
+    }
+    .guest-source-name { font-family: var(--font-display); font-size: 1.05rem; color: var(--primary); }
+    .guest-source-toggle { color: var(--teal-dark); font-size: 0.85rem; font-weight: 700; }
+    .guest-source-body { display: none; padding: 0.2rem 1rem 0.8rem; }
+    .guest-source.open .guest-source-body { display: block; }
+    .guest-source.open .guest-source-toggle { transform: rotate(180deg); display: inline-block; }
+    .guest-section-label { font-weight: 700; font-size: 0.9rem; color: var(--dark); margin: 0.7rem 0 0.3rem; border-bottom: 1px solid var(--border); padding-bottom: 0.25rem; }
+    .guest-item-row { display: flex; align-items: center; justify-content: space-between; gap: 0.6rem; padding: 0.5rem 0; border-bottom: 1px dashed var(--border); }
+    .guest-item-row:last-child { border-bottom: none; }
+    .guest-item-name { font-weight: 700; font-size: 0.92rem; }
+    .guest-item-desc { font-size: 0.78rem; color: var(--gray); margin-top: 0.1rem; }
+    .guest-item-side { display: flex; align-items: center; gap: 0.6rem; flex: none; }
+    .guest-item-price { font-family: var(--font-display); color: var(--primary); font-size: 0.95rem; white-space: nowrap; }
+    .guest-add-btn { background: var(--teal); color: white; border: none; border-radius: 6px; padding: 0.35rem 0.7rem; font-family: 'Rubik', sans-serif; font-weight: bold; font-size: 0.85rem; cursor: pointer; white-space: nowrap; }
+    .guest-add-btn:hover { background: var(--teal-dark); }
+    .cart-item-guest { font-size: 0.78rem; color: var(--teal-dark); margin-top: 0.15rem; font-weight: 700; }
     /* Modal choice selector (couple's meal pizza pick) */
     .choice-group { display: flex; flex-direction: column; gap: 0.5rem; margin: 0.3rem 0 0.8rem; }
     .choice-opt {
@@ -532,32 +545,6 @@
     .login-secondary { background: #333 !important; margin-top: 0.5rem; }
     .login-error { color: var(--danger); font-size: 0.85rem; margin-top: 0.5rem; text-align: center; display: none; }
 
-    /* ══ DOUGH GAME ══ */
-    #dough-game { margin: 2rem auto 0; max-width: 340px; background: #1a1008; border-radius: 20px; padding: 1.4rem 1.2rem 1.8rem; text-align: center; border: 2px solid #5a3a18; box-shadow: 0 8px 32px rgba(0,0,0,0.4); display: none; }
-    .dg-title { font-size: 1.1rem; font-weight: 900; color: #f5deb3; margin-bottom: 0.2rem; }
-    .dg-sub { font-size: 0.82rem; color: #a08060; margin-bottom: 1rem; }
-    .dg-scale-wrap { position: relative; width: 200px; height: 200px; margin: 0 auto 0.6rem; }
-    .dg-scale-base { position: absolute; bottom: 0; left: 50%; transform: translateX(-50%); width: 170px; height: 18px; background: #3a2a10; border-radius: 6px; border: 2px solid #5a4020; }
-    .dg-scale-pole { position: absolute; bottom: 18px; left: 50%; transform: translateX(-50%); width: 7px; height: 55px; background: #5a4020; border-radius: 4px; }
-    .dg-scale-plate { position: absolute; bottom: 73px; left: 50%; transform: translateX(-50%); width: 140px; height: 10px; background: #8a6030; border-radius: 50%; border: 2px solid #a07840; }
-    .dg-dough { position: absolute; bottom: 80px; left: 50%; transform: translateX(-50%); width: 76px; height: 76px; border-radius: 50%; background: radial-gradient(circle at 33% 33%, #f5e8c0, #d4b483 58%, #b8955a); box-shadow: 0 4px 14px rgba(0,0,0,0.45), inset 0 -4px 8px rgba(0,0,0,0.2); }
-    .dg-weight-display { font-size: 2.8rem; font-weight: 900; letter-spacing: -0.01em; color: #f5deb3; line-height: 1; font-variant-numeric: tabular-nums; margin-bottom: 0.2rem; }
-    .dg-weight-unit { font-size: 0.9rem; color: #a08060; margin-bottom: 0.5rem; }
-    .dg-target { font-size: 0.85rem; color: #c8a060; margin-bottom: 0.9rem; }
-    .dg-target span { color: #ffd700; font-weight: 900; }
-    .dg-tries { font-size: 0.82rem; color: #a08060; margin-bottom: 1rem; display: flex; justify-content: center; gap: 0.5rem; align-items: center; }
-    .dg-dot { width: 12px; height: 12px; border-radius: 50%; background: #c8a060; display: inline-block; transition: background 0.3s; }
-    .dg-dot.used { background: #3a2010; border: 1px solid #6a4020; }
-    .dg-stop-btn { background: linear-gradient(135deg, var(--primary), var(--primary-dark)); color: white; border: none; border-radius: 14px; font-family: 'Rubik', sans-serif; font-size: 1.1rem; font-weight: 900; padding: 0.9rem 2rem; cursor: pointer; width: 100%; box-shadow: 0 4px 14px rgba(163,20,25,0.4); transition: transform 0.1s; touch-action: manipulation; }
-    .dg-stop-btn:active:not(:disabled) { transform: scale(0.96); }
-    .dg-stop-btn:disabled { opacity: 0.45; cursor: default; }
-    .dg-result { display: none; padding: 1rem; border-radius: 12px; margin-top: 1rem; font-size: 0.95rem; font-weight: 700; line-height: 1.6; }
-    .dg-result.win { background: #0f2a0a; border: 2px solid #4ade80; color: #4ade80; }
-    .dg-result.lose { background: #2a0f0a; border: 2px solid #c96a30; color: #f5deb3; }
-    .dg-coupon { font-size: 1.6rem; font-weight: 900; letter-spacing: 4px; color: #ffd700; margin: 0.6rem 0; }
-    .dg-copy-btn { background: #ffd700; color: #1a1008; border: none; border-radius: 8px; font-family: 'Rubik', sans-serif; font-weight: 900; font-size: 0.85rem; padding: 0.45rem 1.1rem; cursor: pointer; margin-top: 0.5rem; }
-    /* ══ END DOUGH GAME ══ */
-
     /* ══ ADMIN TABS ══ */
     .admin-tabs {
         display: flex; gap: 0.4rem; margin: -0.5rem 0 1.2rem;
@@ -651,7 +638,7 @@
     .modal-add-btn:active, .coupon-btn:active, .remove-btn:active, .qty-btn:active,
     .btn-submit:active:not(:disabled), .reorder-btn:active, .whatsapp-share-btn:active,
     .cart-icon-btn:active, .quiz-option:active:not(:disabled), .upsell-confirm:active, .upsell-skip:active,
-    .float-btn:active, .restore-btn:active, .dg-copy-btn:active, .modal-close:active,
+    .float-btn:active, .restore-btn:active, .modal-close:active,
     .upsell-tile:active, .choice-opt:active {
         transform: scale(0.94);
         transition: transform 100ms ease-out;
@@ -663,15 +650,15 @@
     @media (prefers-reduced-motion: reduce) {
         *, *::before, *::after { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; }
         header, .modal-overlay, .modal, .sheet-handle, .upsell-overlay, .upsell-box,
-        #track-modal, .track-box, .promo-banner, .winners-banner, .threshold-achieved {
+        #track-modal, .track-box, .promo-banner, .threshold-achieved {
             transition-duration: 0.12s !important;
         }
         .modal, .upsell-box, .track-box { transform: none !important; }
         .modal-add-btn:active, .coupon-btn:active, .remove-btn:active, .qty-btn:active,
         .btn-submit:active:not(:disabled), .reorder-btn:active, .whatsapp-share-btn:active,
         .cart-icon-btn:active, .quiz-option:active:not(:disabled), .upsell-confirm:active, .upsell-skip:active,
-        .float-btn:active, .restore-btn:active, .dg-copy-btn:active, .modal-close:active,
-        .upsell-tile:active, .choice-opt:active, .add-btn:active:not(:disabled), .dg-stop-btn:active:not(:disabled) {
+        .float-btn:active, .restore-btn:active, .modal-close:active,
+        .upsell-tile:active, .choice-opt:active, .add-btn:active:not(:disabled) {
             transform: none;
         }
     }
@@ -762,13 +749,6 @@
             <button class="admin-btn" onclick="createCoupon()">+ צור</button>
         </div>
         <div id="coupons-list"><div style="color:#888; font-size:0.85rem;">טוען...</div></div>
-    </div>
-
-    <div class="admin-section-title">🏆 קופונים שניתנו במשחק</div>
-    <div class="admin-section">
-        <div id="game-stats" style="background:#2a2a2a; border-radius:8px; padding:0.7rem 0.9rem; margin-bottom:0.7rem; font-size:0.88rem;"></div>
-        <div id="won-coupons-list"><div style="color:#888; font-size:0.85rem;">טוען...</div></div>
-        <button class="admin-btn-secondary" style="margin-top:0.5rem;" onclick="previewDoughGame()">🎮 הצג תצוגה מקדימה של המשחק</button>
     </div>
 </div>
 
@@ -879,7 +859,6 @@
 <div class="busy-banner" id="busy-banner">🔥 אנחנו עמוסים כרגע -- זמן ההמתנה עשוי להיות ארוך יותר</div>
 <div class="prep-banner" id="prep-banner"></div>
 <div class="promo-banner" id="promo-banner"></div>
-<div class="winners-banner" id="winners-banner"></div>
 
 <!-- UPSELL MODAL — shown right before submitting if cart has no dessert/drink -->
 <div class="upsell-overlay" id="upsell-modal">
@@ -971,6 +950,11 @@
         <div class="section-title">משקאות</div>
         <div class="menu-grid" id="grid-drinks"></div>
 
+        <!-- GUEST MENUS — dishes from neighboring businesses (same order, same ticket) -->
+        <div class="section-title">עוד מהשכונה</div>
+        <p class="guest-menu-intro">מזמינים מהדיינר? אפשר להוסיף גם מנה מהשכנים בשוק — הכל מגיע יחד באותה הזמנה.</p>
+        <div id="guest-menus"></div>
+
         <!-- CART -->
         <div class="cart" id="cart-section">
             <h3>🛒 ההזמנה שלי</h3>
@@ -1054,10 +1038,6 @@
         <p>תודה <strong><span id="ty-name"></span></strong>, ההזמנה התקבלה במטבח שלנו.</p>
         <p id="ty-payment-msg">נחזור אליך טלפונית תוך כמה דקות לאישור ולקיחת פרטי תשלום.</p>
 
-        <!-- Compact dough-game pointer at the top of thank-you -->
-        <div id="dough-game-cta" style="display:none;max-width:340px;margin:0.6rem auto 0;background:#fff8e1;border:1px dashed #b8860b;border-radius:8px;padding:0.5rem 0.8rem;text-align:center;cursor:pointer;font-size:0.88rem;color:#7a5800;" onclick="document.getElementById('dough-game').scrollIntoView({behavior:'smooth',block:'center'});">
-            🎮 בונוס בהמשך — משחק משקל הבצק <strong>(15% הנחה ↓)</strong>
-        </div>
         <div class="eta-box" id="eta-box">⏱ זמן הכנה משוער: <span id="eta-display">30</span> דקות</div>
         <br>
         <button class="whatsapp-share-btn" onclick="shareWhatsApp()">
@@ -1095,29 +1075,6 @@
             </button>
         </div>
         <button class="btn-submit" style="max-width:300px; margin:auto;" onclick="location.reload()">הזמנה חדשה</button>
-        <!-- ══ DOUGH GAME ══ -->
-        <div id="dough-game">
-            <div class="dg-title">🎮 אתגר משקל הבצק</div>
-            <div class="dg-sub">עצור על המשקל הנכון וזכה בקופון 15% הנחה!</div>
-            <div class="dg-scale-wrap">
-                <div class="dg-dough" id="dg-dough"></div>
-                <div class="dg-scale-plate"></div>
-                <div class="dg-scale-pole"></div>
-                <div class="dg-scale-base"></div>
-            </div>
-            <div class="dg-weight-display" id="dg-weight">215</div>
-            <div class="dg-weight-unit">גרם</div>
-            <div class="dg-target">מטרה: <span>278–282 גרם</span></div>
-            <div class="dg-tries">
-                ניסיונות נותרו:&nbsp;
-                <span class="dg-dot" id="dg-dot-1"></span>
-                <span class="dg-dot" id="dg-dot-2"></span>
-                <span class="dg-dot" id="dg-dot-3"></span>
-            </div>
-            <button class="dg-stop-btn" id="dg-btn" onclick="dgStop()">עצור עכשיו! 🛑</button>
-            <div class="dg-result" id="dg-result"></div>
-        </div>
-        <!-- ══ END DOUGH GAME ══ -->
     </div>
 </div>
 
@@ -1294,6 +1251,12 @@ const MENU_SECTIONS = [
     {key:"drinks",  label:"משקאות"}
 ];
 
+// Dishes from neighboring businesses (SITE_CONFIG.guestMenus) that a customer can add
+// to their own cart — same order, same kitchen ticket. Prices are re-validated
+// server-side in place-order.js against this same SITE_CONFIG, never trusted from here.
+const GUEST_MENUS = (SITE_CONFIG.guestMenus || []);
+let guestOpenSources = new Set();
+
 function rebuildItemIndex() {
     ITEM_IDX = [];
     let i = 0;
@@ -1353,6 +1316,9 @@ let modalItem   = null;
 let modalExtras = {};
 let modalQty    = 1;
 let modalChoice = null;   // selected option for items that offer a choice (couple's meal)
+let modalMealDrink = {};  // { [extraName]: chosen soft-drink } for meal-upgrade extras (group "meal")
+// Soft drinks offered free with the meal-upgrade extra (no beer — that's paid separately).
+const MEAL_DRINK_OPTIONS = ["קולה", "קולה זירו", "ספרייט", "ספרייט זירו"];
 let soldOut     = new Set();
 let isBusy      = false;
 let deliveryOn  = true;
@@ -1569,12 +1535,75 @@ function renderMenu() {
     renderSection("grid-chicken", MENU.chicken || []);
     renderSection("grid-sides",   MENU.sides   || []);
     renderSection("grid-drinks",  MENU.drinks  || []);
+    renderGuestMenus();
 }
 
 function renderSection(gridId, items) {
     const el = document.getElementById(gridId);
     if (!el) return;
     el.innerHTML = items.map(item => menuCardHTML(item)).join("");
+}
+
+// ============================================================
+// GUEST MENUS — dishes from neighboring businesses, added to the same cart/order
+// ============================================================
+function renderGuestMenus() {
+    const el = document.getElementById("guest-menus");
+    if (!el) return;
+    el.innerHTML = GUEST_MENUS.map(src => {
+        const open = guestOpenSources.has(src.key);
+        const body = (src.sections || []).map(sec =>
+            '<div class="guest-section-label">' + escAttr(sec.label) + '</div>' +
+            (sec.items || []).map(item => guestItemRow(src.key, item)).join("")
+        ).join("");
+        return (
+            '<div class="guest-source' + (open ? ' open' : '') + '" data-src="' + escAttr(src.key) + '">' +
+                '<div class="guest-source-head" onclick="toggleGuestSource(\'' + src.key + '\')">' +
+                    '<span class="guest-source-name">🏪 ' + escAttr(src.name) + '</span>' +
+                    '<span class="guest-source-toggle">▾ ' + (open ? "סגור" : "הצג תפריט") + '</span>' +
+                '</div>' +
+                '<div class="guest-source-body">' + body + '</div>' +
+            '</div>'
+        );
+    }).join("");
+}
+
+function toggleGuestSource(key) {
+    if (guestOpenSources.has(key)) guestOpenSources.delete(key);
+    else guestOpenSources.add(key);
+    renderGuestMenus();
+}
+
+function guestItemRow(srcKey, item) {
+    const safeSrc  = String(srcKey).replace(/\\/g, "\\\\").replace(/'/g, "\\'");
+    const safeName = String(item.name).replace(/\\/g, "\\\\").replace(/'/g, "\\'");
+    return (
+        '<div class="guest-item-row">' +
+            '<div><div class="guest-item-name">' + escAttr(item.name) + '</div>' +
+            (item.desc ? '<div class="guest-item-desc">' + escAttr(item.desc) + '</div>' : '') + '</div>' +
+            '<div class="guest-item-side">' +
+                '<span class="guest-item-price">' + item.price + ' ₪</span>' +
+                '<button class="guest-add-btn" onclick="addGuestItem(\'' + safeSrc + '\',\'' + safeName + '\')">+ הוסף</button>' +
+            '</div>' +
+        '</div>'
+    );
+}
+
+function addGuestItem(srcKey, itemName) {
+    const src = GUEST_MENUS.find(s => s.key === srcKey);
+    const item = src && src.sections.flatMap(s => s.items).find(i => i.name === itemName);
+    if (!src || !item) return;
+    cart.push({
+        name:       item.name,
+        basePrice:  item.price,
+        choice:     "",
+        extras:     [],
+        notes:      "",
+        total:      item.price,
+        guestSource: src.name
+    });
+    updateCart();
+    toast("✅ " + item.name + " (" + src.name + ") נוסף לעגלה");
 }
 
 // Burgers grid: chef's recommendation pinned on top, couple's meal at the bottom.
@@ -1752,6 +1781,7 @@ function openModal(idx) {
     modalExtras = {};
     modalQty    = 1;
     modalChoice = null;
+    modalMealDrink = {};
     document.getElementById("modal-name").textContent = modalItem.name;
     document.getElementById("modal-desc").textContent = modalItem.desc || "";
     document.getElementById("modal-notes").value = "";
@@ -1782,7 +1812,7 @@ function openModal(idx) {
         EXTRAS_GROUPS.forEach(g => {
             const items = EXTRAS[g.key] || [];
             if (!items.length) return;
-            html += '<div class="extras-title">' + g.label + '</div>' + items.map(e => extraRow(e)).join("");
+            html += '<div class="extras-title">' + g.label + '</div>' + items.map(e => extraRow(e, g.key)).join("");
         });
     } else if (Array.isArray(modalItem.extras) && modalItem.extras.length) {
         const custom = modalItem.extras
@@ -1799,17 +1829,44 @@ function openModal(idx) {
     presentSheet(extrasPanelEl, extrasOverlayEl);
 }
 
-function extraRow(e) {
+function extraRow(e, groupKey) {
     const key = "eq_" + e.n.replace(/\s/g, "_");
-    return (
+    // Extra names can contain an apostrophe (e.g. "צ'יפס") — escape it so it
+    // doesn't terminate the JS string literal inside the onclick attribute
+    // (which silently broke the +/- buttons for any such extra).
+    const safeName = String(e.n).replace(/\\/g, "\\\\").replace(/'/g, "\\'");
+    let html = (
         '<div class="extra-row">' +
-        "<div><span>" + e.n + "</span> <span class=\"extra-price\">+" + e.p + " ₪</span></div>" +
+        "<div><span>" + escAttr(e.n) + "</span> <span class=\"extra-price\">+" + e.p + " ₪</span></div>" +
         '<div class="qty-ctrl">' +
-        '<button class="qty-btn" onclick="changeExtra(\'' + e.n + '\',' + e.p + ',-1)">−</button>' +
+        '<button class="qty-btn" onclick="changeExtra(\'' + safeName + '\',' + e.p + ',-1)">−</button>' +
         '<span class="qty-num" id="' + key + '">0</span>' +
-        '<button class="qty-btn" onclick="changeExtra(\'' + e.n + '\',' + e.p + ',1)">+</button>' +
+        '<button class="qty-btn" onclick="changeExtra(\'' + safeName + '\',' + e.p + ',1)">+</button>' +
         "</div></div>"
     );
+    // The meal-upgrade group (fries + soft drink) needs the customer to pick which
+    // drink is included — shown only once that extra's qty is bumped above 0.
+    if (groupKey === "meal") {
+        html += '<div class="meal-drink-pick" id="drinkpick_' + key + '" style="display:none;">' +
+            '<div class="extras-title" style="margin:0.5rem 0 0.3rem;font-size:0.85rem;">🥤 בחרו שתייה קלה לשדרוג</div>' +
+            '<div class="choice-group">' + MEAL_DRINK_OPTIONS.map(d =>
+                '<label class="choice-opt">' +
+                '<input type="radio" name="mealdrink_' + key + '" value="' + escAttr(d) + '" onchange="selectMealDrink(\'' + safeName + '\', this)">' +
+                '<span>' + escAttr(d) + '</span></label>'
+            ).join("") + '</div>' +
+        '</div>';
+    }
+    return html;
+}
+
+function selectMealDrink(name, el) {
+    modalMealDrink[name] = el.value;
+    const group = el.closest('.choice-group');
+    if (group) group.querySelectorAll('.choice-opt').forEach(l => {
+        const input = l.querySelector('input');
+        l.classList.toggle('selected', !!(input && input.checked));
+    });
+    updateModalBtn();
 }
 
 function selectChoice(el) {
@@ -1823,8 +1880,21 @@ function selectChoice(el) {
 function changeExtra(name, price, delta) {
     if (!modalExtras[name]) modalExtras[name] = {qty: 0, price};
     modalExtras[name].qty = Math.max(0, modalExtras[name].qty + delta);
-    const el = document.getElementById("eq_" + name.replace(/\s/g, "_"));
+    const domKey = name.replace(/\s/g, "_");
+    const el = document.getElementById("eq_" + domKey);
     if (el) el.textContent = modalExtras[name].qty;
+    // Show/hide (and reset) the included-drink picker for meal-upgrade extras.
+    const picker = document.getElementById("drinkpick_eq_" + domKey);
+    if (picker) {
+        if (modalExtras[name].qty > 0) {
+            picker.style.display = "block";
+        } else {
+            picker.style.display = "none";
+            delete modalMealDrink[name];
+            picker.querySelectorAll('input[type=radio]').forEach(r => r.checked = false);
+            picker.querySelectorAll('.choice-opt').forEach(l => l.classList.remove('selected'));
+        }
+    }
     updateModalBtn();
 }
 
@@ -1854,9 +1924,21 @@ function confirmAdd() {
     if (!modalItem) return;
     const choices = Array.isArray(modalItem.choices) ? modalItem.choices.filter(c => c && c.name) : [];
     if (choices.length && !modalChoice) { toast("⚠️ נא לבחור אפשרות"); return; }
+    // Meal-upgrade extras (fries + soft drink) require picking which drink is included.
+    const mealNames = new Set((EXTRAS.meal || []).map(e => e.n));
+    for (const [name, v] of Object.entries(modalExtras)) {
+        if (v.qty > 0 && mealNames.has(name) && !modalMealDrink[name]) {
+            toast("⚠️ נא לבחור שתייה לשדרוג הארוחה");
+            return;
+        }
+    }
     const sel = Object.entries(modalExtras)
         .filter(([, v]) => v.qty > 0)
-        .map(([name, v]) => ({name, qty: v.qty, price: v.price}));
+        .map(([name, v]) => {
+            const entry = {name, qty: v.qty, price: v.price};
+            if (modalMealDrink[name]) entry.choice = modalMealDrink[name];
+            return entry;
+        });
     const extTotal = sel.reduce((s, e) => s + e.qty * e.price, 0);
     const unitPrice = modalItem.price + extTotal;
     for (let i = 0; i < modalQty; i++) {
@@ -1950,7 +2032,7 @@ function updateCart() {
 
     list.innerHTML = cart.map((item, i) => {
         const extText = item.extras.length
-            ? "תוספות: " + item.extras.map(e => escAttr(e.name) + (e.qty > 1 ? " x" + e.qty : "")).join(", ")
+            ? "תוספות: " + item.extras.map(e => escAttr(e.name) + (e.qty > 1 ? " x" + e.qty : "") + (e.choice ? " — " + escAttr(e.choice) : "")).join(", ")
             : "";
         return (
             '<li class="cart-item">' +
@@ -1958,6 +2040,7 @@ function updateCart() {
             '<span class="cart-item-price">' + (Number(item.total) || 0) + " ₪</span></div>" +
             (item.choice ? '<div class="cart-item-extras">🍔 ' + escAttr(item.choice) + "</div>" : "") +
             (extText ? '<div class="cart-item-extras">' + extText + "</div>" : "") +
+            (item.guestSource ? '<div class="cart-item-guest">🏪 מ-' + escAttr(item.guestSource) + "</div>" : "") +
             (item.notes ? '<div class="cart-item-notes">📝 ' + escAttr(item.notes) + "</div>" : "") +
             '<div class="cart-item-actions"><button class="remove-btn" onclick="removeItem(' + i + ')">🗑 הסר</button></div>' +
             "</li>"
@@ -2162,7 +2245,6 @@ async function submitOrder() {
             const total = (data && data.total != null)
                 ? data.total
                 : Math.max(0, itemsTotal + (isDelivery() ? DELIVERY_FEE : 0) - calcDiscount(itemsTotal));
-            window._gameToken = (data && data.gameToken) || null; // one-time dough-game token
             saveCustomer(name, phone, address);
             saveLastOrder(cart);
             // REF- referrals are still processed by their own function (works post-lock).
@@ -2199,8 +2281,8 @@ async function submitOrder() {
 
     let itemsText = "";
     cart.forEach(item => {
-        itemsText += "• " + item.name + (item.choice ? " — " + item.choice : "") + " -- " + item.basePrice + " ₪";
-        if (item.extras.length) itemsText += "\n  ↳ " + item.extras.map(e => e.name + (e.qty > 1 ? " x" + e.qty : "") + " (+" + (e.qty * e.price) + "₪)").join(", ");
+        itemsText += "• " + (item.guestSource ? "🏪 " : "") + item.name + (item.guestSource ? " (" + item.guestSource + ")" : "") + (item.choice ? " — " + item.choice : "") + " -- " + item.basePrice + " ₪";
+        if (item.extras.length) itemsText += "\n  ↳ " + item.extras.map(e => e.name + (e.qty > 1 ? " x" + e.qty : "") + (e.choice ? " — " + e.choice : "") + " (+" + (e.qty * e.price) + "₪)").join(", ");
         if (item.notes) itemsText += "\n  📝 " + item.notes;
         itemsText += "\n  סה\"כ: " + item.total + " ₪\n";
     });
@@ -2308,7 +2390,7 @@ async function submitOrder() {
     }
 }
 
-// Shared post-order UI (thank-you screen, push prompt, dough game, share vars).
+// Shared post-order UI (thank-you screen, push prompt, share vars).
 // Used by both the server-authoritative path and the legacy fallback.
 function finishOrderUI(orderKey, total, name, phone, payment) {
     document.getElementById("main-content").style.display = "none";
@@ -2331,7 +2413,6 @@ function finishOrderUI(orderKey, total, name, phone, payment) {
     window._lastOrderPhone = phone;
 
     window.scrollTo(0, 0);
-    setTimeout(() => dgInit(orderKey), 900);
     loadCustomerLoyaltyCard().catch(() => {});
 }
 
@@ -2622,7 +2703,7 @@ async function loadCouponsList() {
     }
     // Resolve "who created each coupon" (display only — does not change coupon behavior).
     // Most coupons already carry the phone (referrerPhone / wonByPhone); names come from
-    // the loyalty record, and dough-game coupons are resolved via their linked order.
+    // the loyalty record.
     const loyalty = (await fbGet("loyalty")) || {};
     const nameFor = (phone) => { const r = phone && loyalty[phone]; return r ? (r.firstName || r.fullName || "") : ""; };
     const entries = Object.entries(coupons);
@@ -2645,7 +2726,6 @@ async function loadCouponsList() {
         else if (c.active === false) badge = '<span class="coupon-entry-status-off"> ● כבוי</span>';
         else                   badge = '<span class="coupon-entry-status-on"> ● פעיל</span>';
         const expiry = c.expiresAt ? '<span class="coupon-entry-info">תפוגה ' + new Date(c.expiresAt).toLocaleDateString("he-IL") + '</span>' : '';
-        const winTag = c.source === "dough-game" ? '<span class="coupon-entry-info">🏆</span>' : '';
         const cr = creators[idx];
         const creator = cr.phone
             ? '<div class="coupon-entry-info" style="width:100%;margin-top:2px;">👤 ' + escAttr(cr.name || "לקוח") + ' · 📞 ' + escAttr(cr.phone) + '</div>'
@@ -2653,7 +2733,6 @@ async function loadCouponsList() {
         return (
             '<div class="coupon-entry">' +
             '<div><span class="coupon-entry-name">' + code + '</span>' +
-            winTag +
             '<span class="coupon-entry-info">' + (c.type === "percent" ? c.value + "%" : c.value + "₪") + " הנחה</span>" +
             (c.usedCount ? '<span class="coupon-entry-info">(' + c.usedCount + ' שימושים)</span>' : '') +
             expiry + badge +
@@ -3207,55 +3286,10 @@ async function loadWeeklyReports() {
         '</div>' +
         '<div class="history-entry-meta">' +
             (r.orders || 0) + ' הזמנות • ממוצע ' + (r.avg || 0) + ' ₪ • ' +
-            (r.gameWins || 0) + ' זכיות במשחק • ' +
             (r.newCustomers || 0) + ' לקוחות חדשים' +
         '</div>' +
         '</div>'
     ).join("");
-}
-
-async function loadGameStats() {
-    const el = document.getElementById("game-stats");
-    if (!el) return;
-    const stats = (await fbGet("siteSettings/gameStats")) || { sessions: 0, wins: 0 };
-    const sessions = stats.sessions || 0;
-    const wins = stats.wins || 0;
-    const winRate = sessions > 0 ? ((wins / sessions) * 100).toFixed(1) : "—";
-    el.innerHTML =
-        '<div style="display:flex; gap:1.5rem; flex-wrap:wrap; color:#eee;">' +
-            '<div><div style="color:#888; font-size:0.78rem;">סשנים</div><div style="font-size:1.3rem; font-weight:900; color:var(--primary);">' + sessions + '</div></div>' +
-            '<div><div style="color:#888; font-size:0.78rem;">זכיות</div><div style="font-size:1.3rem; font-weight:900; color:#4ade80;">' + wins + '</div></div>' +
-            '<div><div style="color:#888; font-size:0.78rem;">% זכייה</div><div style="font-size:1.3rem; font-weight:900; color:#fbbf24;">' + winRate + (sessions > 0 ? '%' : '') + '</div></div>' +
-        '</div>';
-}
-
-async function loadWonCoupons() {
-    loadGameStats();
-    const el = document.getElementById("won-coupons-list");
-    if (!el) return;
-    const coupons = await fbGet("coupons");
-    if (!coupons) { el.innerHTML = '<div style="color:#888; font-size:0.85rem;">אין נתונים</div>'; return; }
-    const won = Object.entries(coupons).filter(([, c]) => c && c.source === "dough-game");
-    if (!won.length) { el.innerHTML = '<div style="color:#888; font-size:0.85rem;">עדיין אין זוכים במשחק</div>'; return; }
-    won.sort((a, b) => (b[1].createdAt || 0) - (a[1].createdAt || 0));
-    el.innerHTML = won.map(([code, c]) => {
-        const expired = c.expiresAt && Date.now() > c.expiresAt && !c.used;
-        let statusHtml;
-        if (c.used)        statusHtml = '<span class="status-redeemed">● מומש' + (c.usedAt ? ' (' + new Date(c.usedAt).toLocaleDateString("he-IL") + ')' : '') + '</span>';
-        else if (expired)  statusHtml = '<span class="status-expired">● פג תוקף</span>';
-        else               statusHtml = '<span class="status-pending">● טרם מומש</span>';
-        const expiryStr = c.expiresAt ? new Date(c.expiresAt).toLocaleDateString("he-IL") : "—";
-        const orderStr  = c.wonByOrderId ? c.wonByOrderId.slice(-6) : "—";
-        const usedByStr = c.usedByOrderId ? ' • מימוש: ' + c.usedByOrderId.slice(-6) : "";
-        return (
-            '<div class="won-row">' +
-            '<div><span class="won-code">' + code + '</span> ' + statusHtml + '</div>' +
-            '<div class="won-meta">' +
-            (c.value ? c.value + '% הנחה • ' : '') +
-            'תפוגה: ' + expiryStr + ' • זכייה בהזמנה: ' + orderStr + usedByStr +
-            '</div></div>'
-        );
-    }).join("");
 }
 
 // ============================================================
@@ -3274,7 +3308,6 @@ async function loadHistory() {
     el.innerHTML = entries.map(([key, o]) => {
         const items = (o.items || []).map(i => i.name).join(", ");
         const time  = o.ts ? new Date(o.ts).toLocaleTimeString("he-IL", {hour:"2-digit", minute:"2-digit"}) : "";
-        const won   = o.wonGameCode ? '<div class="history-entry-coupon">🏆 זכה במשחק: ' + o.wonGameCode + '</div>' : '';
         const cpn   = o.couponCode  ? '<div class="history-entry-coupon">🎟 קופון: ' + o.couponCode + ' (-' + (o.discount || 0) + ' ₪)</div>' : '';
         return (
             '<div class="history-entry">' +
@@ -3284,7 +3317,7 @@ async function loadHistory() {
             '</div>' +
             '<div class="history-entry-meta">' + time + ' • ' + (o.type || "—") + ' • ' + (o.payment === "cash" ? "מזומן" : "אשראי") + ' • ' + (o.phone || "") + '</div>' +
             (items ? '<div class="history-entry-items">📦 ' + items + '</div>' : '') +
-            cpn + won +
+            cpn +
             '</div>'
         );
     }).join("");
@@ -3319,13 +3352,12 @@ async function loadSalesReport() {
 
     if (!filtered.length) { el.innerHTML = '<div class="history-empty">אין הזמנות בטווח הזה</div>'; return; }
 
-    let revenue = 0, delivery = 0, pickup = 0, gameWins = 0, couponsUsed = 0, couponDiscount = 0;
+    let revenue = 0, delivery = 0, pickup = 0, couponsUsed = 0, couponDiscount = 0;
     const itemCounts = {};
     const hourCounts = new Array(24).fill(0);
     filtered.forEach(o => {
         revenue += o.total || 0;
         if (o.type === "משלוח") delivery++; else pickup++;
-        if (o.wonGameCode) gameWins++;
         if (o.couponCode)  { couponsUsed++; couponDiscount += o.discount || 0; }
         (o.items || []).forEach(it => { itemCounts[it.name] = (itemCounts[it.name] || 0) + 1; });
         if (o.ts) hourCounts[new Date(o.ts).getHours()]++;
@@ -3343,7 +3375,6 @@ async function loadSalesReport() {
         statTile("משלוחים", delivery) +
         statTile("איסוף", pickup) +
         statTile("שעת שיא", peakHour + ":00") +
-        statTile("זכיות במשחק", gameWins) +
         statTile("קופונים מומשו", couponsUsed) +
         '</div>' +
         (couponDiscount ? '<div class="history-entry-meta" style="margin-bottom:0.7rem;">סך הנחות שניתנו: ' + couponDiscount + ' ₪</div>' : '') +
@@ -3360,25 +3391,6 @@ function statTile(label, value) {
     return '<div style="background:#1e1e1e; border:1px solid #333; border-radius:8px; padding:0.6rem 0.8rem;">' +
         '<div style="color:#888; font-size:0.75rem;">' + label + '</div>' +
         '<div style="color:var(--primary); font-size:1.3rem; font-weight:900;">' + value + '</div></div>';
-}
-
-// ============================================================
-// GAME PREVIEW (admin) — opens the dough game without minting a real coupon
-// ============================================================
-function previewDoughGame() {
-    // Hide admin and show thank-you so the existing #dough-game container is visible
-    document.getElementById("admin-page").style.display = "none";
-    document.getElementById("site-page").style.display  = "block";
-    document.getElementById("main-content").style.display = "none";
-    document.getElementById("float-btn").style.display    = "none";
-    document.getElementById("ty-name").textContent        = "תצוגה מקדימה";
-    document.getElementById("eta-display").textContent    = etaMinutes;
-    document.getElementById("thank-you").style.display    = "block";
-    window.scrollTo(0, 0);
-    // No order key → mintWinCoupon will skip the order link, but it still creates
-    // a coupon. Set a flag the game can read to fully skip Firebase writes.
-    window._dgPreview = true;
-    setTimeout(() => dgInit(null), 200);
 }
 
 // ============================================================
@@ -3431,7 +3443,7 @@ function openAdminUI() {
     document.getElementById("site-page").style.display  = "none";
     document.getElementById("admin-page").style.display = "block";
     renderSoldOutGrid(); applyBusy(); loadStats(); loadCouponsList();
-    renderMenuAdmin(); renderExtrasAdmin(); renderSpecialsAdmin(); loadPromosList(); loadWonCoupons();
+    renderMenuAdmin(); renderExtrasAdmin(); renderSpecialsAdmin(); loadPromosList();
     const today = new Date().toISOString().slice(0, 10);
     const hd = document.getElementById("history-date");
     if (hd) hd.value = today;
@@ -3446,7 +3458,7 @@ function switchAdminTab(tab) {
         t.classList.toggle('active', t.dataset.tab === tab);
     });
     // Re-render data that may have changed since the tab last opened
-    if (tab === "coupons") { loadCouponsList(); loadWonCoupons(); }
+    if (tab === "coupons") { loadCouponsList(); }
     if (tab === "promos")  { loadPromosList(); }
     if (tab === "menu")    { renderMenuAdmin(); renderExtrasAdmin(); renderSpecialsAdmin(); }
     if (tab === "reports") { loadWeeklyReports(); }
@@ -3499,7 +3511,6 @@ async function init() {
     startPolling();
     loadPrepTime();
     loadActivePromos();
-    loadRecentWinners();
     loadCustomerLoyaltyCard();
     loadReorderCard();
     loadDailyQuiz();
@@ -3617,9 +3628,10 @@ function reorderLast() {
             name: i.name,
             basePrice: i.basePrice || 0,
             choice: i.choice || "",
-            extras: (i.extras || []).map(e => ({ name: e.name, qty: e.qty, price: e.price || 0 })),
+            extras: (i.extras || []).map(e => ({ name: e.name, qty: e.qty, price: e.price || 0, choice: e.choice || undefined })),
             notes: i.notes || "",
-            total: i.total || 0
+            total: i.total || 0,
+            guestSource: i.guestSource || undefined
         });
     });
     if (data.fullName) document.getElementById("f-name").value = data.fullName;
@@ -3913,9 +3925,10 @@ async function recordLoyaltyOrder(phoneDigits, orderKey, orderData) {
                     name: i.name,
                     basePrice: i.basePrice || 0,
                     total: i.total || 0,
-                    extras: (i.extras || []).map(e => ({ name: e.name, qty: e.qty, price: e.price })),
+                    extras: (i.extras || []).map(e => ({ name: e.name, qty: e.qty, price: e.price, choice: e.choice || undefined })),
                     notes: i.notes || "",
-                    isThresholdReward: !!i.isThresholdReward
+                    isThresholdReward: !!i.isThresholdReward,
+                    guestSource: i.guestSource || undefined
                 })),
                 type: orderData.type || null,
                 address: orderData.address || null,
@@ -4042,214 +4055,6 @@ async function recordItemStats(itemNames) {
     }));
 }
 
-// ============================================================
-// RECENT WINNERS BANNER (social proof)
-// ============================================================
-async function loadRecentWinners() {
-    const banner = document.getElementById("winners-banner");
-    if (!banner) return;
-    const coupons = await fbGet("coupons");
-    if (!coupons) { banner.classList.remove("visible"); return; }
-    const now = Date.now();
-    const sevenDays = 7 * 86400000;
-    const recent = Object.values(coupons).filter(c =>
-        c && c.source === "dough-game" && c.createdAt && (now - c.createdAt) < sevenDays
-    );
-    if (!recent.length) { banner.classList.remove("visible"); return; }
-    const last = recent.sort((a,b) => (b.createdAt || 0) - (a.createdAt || 0))[0];
-    const hours = Math.max(1, Math.round((now - last.createdAt) / 3600000));
-    const timeAgo = hours < 24 ? 'לפני ' + hours + ' שעות' : 'לפני ' + Math.round(hours/24) + ' ימים';
-    banner.innerHTML = '🏆 <strong>' + recent.length + ' זוכים</strong> השבוע במשחק הבצק! האחרון ' + timeAgo + ' — בוא לנסות בהזמנה הבאה';
-    banner.classList.add("visible");
-}
-
-// ══ DOUGH GAME ══
-// Win window: 278–282g (inclusive). On win we mint a unique 15%-off coupon
-// (server-side via Netlify function when possible, with a client fallback),
-// link it to the order, and show its 14-day expiry.
-(function(){
-    const TARGET=280,WIN_TOLERANCE=2,MIN_W=150,MAX_W=410,MIN_PX=50,MAX_PX=112,PERIOD=2800;
-    const COUPON_PERCENT=15,COUPON_TTL_MS=14*86400000;
-    const TOTAL_TRIES=3;
-    let rafId=null,triesLeft=TOTAL_TRIES,gameOver=false,startTime=null;
-    let lastOrderKey=null,lastWonCode=null;
-    function weightAt(t){const sine=(1-Math.cos(2*Math.PI*((t%PERIOD)/PERIOD)))/2;return Math.round(MIN_W+sine*(MAX_W-MIN_W));}
-    function sizeAt(w){return MIN_PX+((w-MIN_W)/(MAX_W-MIN_W))*(MAX_PX-MIN_PX);}
-    function tick(ts){
-        if(!startTime)startTime=ts;
-        const w=weightAt(ts-startTime),px=sizeAt(w);
-        const wEl=document.getElementById('dg-weight'),dough=document.getElementById('dg-dough');
-        if(wEl)wEl.textContent=w;
-        if(dough){dough.style.width=px+'px';dough.style.height=px+'px';dough.style.bottom=(80+(MAX_PX-px)/2)+'px';}
-        if(!gameOver)rafId=requestAnimationFrame(tick);
-    }
-    function genCode(){
-        const chars='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-        let s='';for(let i=0;i<5;i++)s+=chars[Math.floor(Math.random()*chars.length)];
-        return 'WIN-'+s;
-    }
-    function fmtDate(ts){
-        const d=new Date(ts);
-        return String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0')+'/'+d.getFullYear();
-    }
-    function daysLeft(expiresAt){
-        return Math.max(0, Math.ceil((expiresAt - Date.now()) / 86400000));
-    }
-    function todayKey(){
-        const d=new Date();
-        return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
-    }
-    function alreadyWonToday(){
-        try {
-            const phone = window._lastOrderPhone;
-            if (!phone) return false;
-            const k = '6bq_won_' + phone.replace(/\D/g,'');
-            return localStorage.getItem(k) === todayKey();
-        } catch { return false; }
-    }
-    function markWonToday(){
-        try {
-            const phone = window._lastOrderPhone;
-            if (!phone) return;
-            const k = '6bq_won_' + phone.replace(/\D/g,'');
-            localStorage.setItem(k, todayKey());
-        } catch {}
-    }
-    async function mintViaServer(){
-        // Preferred path — calls Netlify function which performs anti-abuse checks.
-        try {
-            const r = await fetch('/.netlify/functions/mint-win-coupon', {
-                method:'POST', headers:{'Content-Type':'application/json'},
-                body: JSON.stringify({ orderKey: lastOrderKey, gameToken: window._gameToken || null })
-            });
-            if (!r.ok) return null;
-            const j = await r.json();
-            if (j && j.code && j.expiresAt) return j;
-            return null;
-        } catch { return null; }
-    }
-    async function mintViaClient(){
-        // Fallback when the function isn't deployed yet.
-        const expiresAt=Date.now()+COUPON_TTL_MS;
-        for(let i=0;i<5;i++){
-            const code=genCode();
-            const existing=await fbGet("coupons/"+code);
-            if(existing) continue;
-            await fbSet("coupons/"+code,{
-                type:"percent",value:COUPON_PERCENT,active:true,
-                usedCount:0,used:false,oneTime:true,
-                createdAt:Date.now(),expiresAt,
-                wonByOrderId:lastOrderKey||null,source:"dough-game"
-            });
-            if(lastOrderKey){
-                await fbSet("orders/"+lastOrderKey+"/wonGameCode",code);
-                await fbSet("orders/"+lastOrderKey+"/wonGameAt",Date.now());
-            }
-            return {code,expiresAt};
-        }
-        return null;
-    }
-    async function mintWinCoupon(){
-        if (window._dgPreview) {
-            // Preview mode: don't touch Firebase, just show a fake code.
-            return { code:'DEMO-CODE', expiresAt: Date.now()+COUPON_TTL_MS, preview: true };
-        }
-        // Server-only: the mint-win-coupon function performs the anti-abuse checks and
-        // writes with FB_SECRET. The old client-side mint is intentionally not used as a
-        // fallback (it would write a fake code once the coupons node is locked).
-        return await mintViaServer();
-    }
-    async function bumpStat(field) {
-        try {
-            const cur = (await fbGet("siteSettings/gameStats")) || {};
-            await fbSet("siteSettings/gameStats", { ...cur, [field]: (cur[field] || 0) + 1 });
-        } catch {}
-    }
-    window.dgInit=function(orderKey){
-        lastOrderKey=orderKey||window._lastOrderKey||null;
-        // A real orderKey means this is not a preview
-        if (lastOrderKey) window._dgPreview = false;
-        // Count one game session per real order (skipped in preview)
-        if (!window._dgPreview && !window._dgSessionLogged) {
-            window._dgSessionLogged = true;
-            bumpStat("sessions");
-        }
-        lastWonCode=null;
-        triesLeft=TOTAL_TRIES;gameOver=false;startTime=null;
-        const game=document.getElementById('dough-game'),result=document.getElementById('dg-result'),btn=document.getElementById('dg-btn');
-        if(!game)return;
-        const cta=document.getElementById('dough-game-cta'); if(cta) cta.style.display='block';
-        // One-win-per-phone-per-day guard (skipped in preview mode)
-        if (!window._dgPreview && alreadyWonToday()) {
-            game.style.display='block';
-            btn.disabled=true;btn.textContent='כבר זכית היום 🎉';
-            result.className='dg-result lose';
-            result.innerHTML='⏳ כבר ניצחת היום! חזור מחר לעוד ניסיון.<br><span style="font-size:0.85rem;font-weight:400;">משחק אחד ליום ללקוח.</span>';
-            result.style.display='block';
-            cancelAnimationFrame(rafId);
-            return;
-        }
-        result.style.display='none';result.className='dg-result';result.innerHTML='';
-        btn.disabled=false;btn.textContent='עצור עכשיו! 🛑';
-        updateDots();cancelAnimationFrame(rafId);
-        game.style.display='block';
-        setTimeout(()=>{startTime=null;rafId=requestAnimationFrame(tick);},80);
-    };
-    window.dgStop=async function(){
-        if(gameOver)return;
-        const w=parseInt(document.getElementById('dg-weight').textContent,10);
-        const diff=Math.abs(w-TARGET);
-        const isWin=diff<=WIN_TOLERANCE;
-        triesLeft--;updateDots();
-        const result=document.getElementById('dg-result'),btn=document.getElementById('dg-btn');
-        if(isWin){
-            gameOver=true;cancelAnimationFrame(rafId);btn.disabled=true;
-            result.className='dg-result win';
-            result.innerHTML='🎉 מדהים! עצרת על '+w+' גרם!<br><span style="font-size:0.9rem;font-weight:400;">מכין לך קופון אישי...</span>';
-            result.style.display='block';
-            const minted=await mintWinCoupon();
-            if(minted){
-                lastWonCode=minted.code;
-                if (!minted.preview) { markWonToday(); bumpStat("wins"); }
-                const left = daysLeft(minted.expiresAt);
-                const previewTag = minted.preview ? '<br><span style="color:#fbbf24;font-size:0.78rem;">(תצוגה מקדימה — קוד פיקטיבי, לא נשמר)</span>' : '';
-                result.innerHTML=
-                    '🎉 מדהים! עצרת על '+w+' גרם!<br>'+
-                    '<span style="font-size:0.9rem;font-weight:400;">קופון אישי ל-'+COUPON_PERCENT+'% הנחה על ההזמנה הבאה:</span>'+
-                    '<div class="dg-coupon">'+minted.code+'</div>'+
-                    '<button class="dg-copy-btn" onclick="dgCopy()">📋 העתק קוד</button><br>'+
-                    '<span style="font-size:0.78rem;font-weight:400;color:#f5deb3;display:block;margin-top:0.7rem;">'+
-                    '⏳ נשארו <strong>'+left+' ימים</strong> למימוש (עד '+fmtDate(minted.expiresAt)+')<br>'+
-                    'הקופון אישי וחד-פעמי — שמור אותו!</span>'+previewTag;
-            } else {
-                result.innerHTML='🎉 ניצחת! אבל קרתה בעיה ביצירת הקופון.<br><span style="font-size:0.85rem;font-weight:400;">צור קשר טלפוני ונסדר לך הנחה.</span>';
-            }
-        } else if(triesLeft<=0){
-            gameOver=true;cancelAnimationFrame(rafId);btn.disabled=true;
-            result.className='dg-result lose';
-            result.innerHTML='😅 פספסת ב-'+diff+' גרם!<br><span style="font-size:0.85rem;font-weight:400;">אולי בפעם הבאה 🍔</span>';
-            result.style.display='block';
-        } else {
-            result.className='dg-result lose';
-            const triesText = triesLeft === 1 ? 'נשאר ניסיון אחד!' : 'נשארו '+triesLeft+' ניסיונות';
-            result.innerHTML='😬 פספסת ב-'+diff+' גרם!<br><span style="font-size:0.85rem;font-weight:400;">נסה שוב -- '+triesText+'</span>';
-            result.style.display='block';
-            btn.textContent = triesLeft === 1 ? 'ניסיון אחרון! 🛑' : 'עצור עכשיו! 🛑';
-        }
-    };
-    window.dgCopy=function(){
-        if(!lastWonCode)return;
-        navigator.clipboard.writeText(lastWonCode).then(()=>{
-            const b=document.querySelector('.dg-copy-btn');
-            if(b){b.textContent='✅ הועתק!';setTimeout(()=>b.textContent='📋 העתק קוד',2000);}
-        }).catch(()=>{});
-    };
-    function updateDots(){
-        document.getElementById('dg-dot-1').className='dg-dot'+(triesLeft<3?' used':'');
-        document.getElementById('dg-dot-2').className='dg-dot'+(triesLeft<2?' used':'');
-        document.getElementById('dg-dot-3').className='dg-dot'+(triesLeft<1?' used':'');
-    }
-})();
 </script>
 
 </body>

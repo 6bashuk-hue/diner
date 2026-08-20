@@ -191,12 +191,14 @@ function validPhone(p) { return /^05\d{8}$/.test(normalizePhone(p)); }
 function toast(msg) { const t = document.getElementById("toast"); t.textContent = msg; t.classList.add("show"); setTimeout(() => t.classList.remove("show"), 2000); }
 function escapeHtml(s) { return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"); }
 
-let MENU = {}, EXTRAS = { veggies: [], cheese: [], premium: [] };
+let MENU = {}, EXTRAS = { meal: [], addons: [] };
 const EXTRAS_GROUPS = [
-  { key: "veggies", label: "🥬 תוספות ירקות" },
-  { key: "cheese",  label: "🧀 תוספות גבינות" },
-  { key: "premium", label: "✨ פרימיום" }
+  { key: "meal",   label: "🍟 שדרוג לארוחה" },
+  { key: "addons", label: "➕ תוספות" }
 ];
+// Soft drinks offered free with the meal-upgrade extra (no beer — that's paid separately).
+const MEAL_DRINK_OPTIONS = ["קולה", "קולה זירו", "ספרייט", "ספרייט זירו"];
+let modalMealDrink = {};
 const SECTION_LABELS = { burgers: "🍔 המבורגרים", chicken: "🍗 עוף", sides: "🍟 נשנושים", drinks: "🥤 משקאות" };
 const SECTION_ORDER = ["burgers", "chicken", "sides", "drinks"];
 let soldOutSet = new Set();
@@ -360,7 +362,7 @@ extrasOverlayEl.addEventListener("click", (e) => { if (e.target === extrasOverla
 
 function openModal(idx) {
   modalItem = ITEM_IDX[idx]; if (!modalItem) return;
-  modalExtras = {}; modalQty = 1;
+  modalExtras = {}; modalQty = 1; modalMealDrink = {};
   document.getElementById("modal-name").textContent = modalItem.name;
   document.getElementById("modal-desc").textContent = modalItem.desc || "";
   document.getElementById("modal-notes").value = "";
@@ -373,7 +375,7 @@ function openModal(idx) {
     EXTRAS_GROUPS.forEach(g => {
       const items = EXTRAS[g.key] || [];
       if (!items.length) return;
-      html += '<div class="extras-title">' + g.label + '</div>' + items.map(extraRow).join("");
+      html += '<div class="extras-title">' + g.label + '</div>' + items.map(e => extraRow(e, g.key)).join("");
     });
     container.innerHTML = html;
   } else if (Array.isArray(modalItem.extras) && modalItem.extras.length) {
@@ -382,21 +384,31 @@ function openModal(idx) {
       .map(e => ({ n: e.name, p: Number(e.price) }));
     if (custom.length) {
       container.innerHTML = '<div class="extras-title">✨ תוספות מומלצות למנה</div>' +
-        custom.map(extraRow).join("");
+        custom.map(e => extraRow(e)).join("");
     }
   }
   updateModalBtn();
   presentSheet(extrasPanelEl, extrasOverlayEl);
 }
-function extraRow(e) {
+function extraRow(e, groupKey) {
   const key = "eq_" + e.n.replace(/[^a-zA-Z0-9]/g, "_");
-  return '<div class="extra-row"><div><span>' + escapeHtml(e.n) + '</span>' +
+  let html = '<div class="extra-row"><div><span>' + escapeHtml(e.n) + '</span>' +
          '<span class="extra-price">+' + e.p + ' ₪</span></div>' +
          '<div class="qty-ctrl">' +
          '<button class="qty-btn" data-eact="dec" data-en="' + escapeHtml(e.n) + '" data-ep="' + e.p + '">−</button>' +
          '<span class="qty-num" id="' + key + '">0</span>' +
          '<button class="qty-btn" data-eact="inc" data-en="' + escapeHtml(e.n) + '" data-ep="' + e.p + '">+</button>' +
          '</div></div>';
+  // The meal-upgrade group (fries + soft drink) needs the customer to pick which
+  // drink is included — shown only once that extra's qty is bumped above 0.
+  if (groupKey === "meal") {
+    html += '<div class="meal-drink-pick" id="drinkpick_' + key + '" style="display:none;">' +
+      '<div class="extras-title" style="margin:0.5rem 0 0.3rem;font-size:0.85rem;">🥤 בחרו שתייה קלה לשדרוג</div>' +
+      '<div class="choice-group">' + MEAL_DRINK_OPTIONS.map(d =>
+        '<label class="choice-opt"><input type="radio" name="mealdrink_' + key + '" data-drink-for="' + escapeHtml(e.n) + '" value="' + escapeHtml(d) + '"><span>' + escapeHtml(d) + '</span></label>'
+      ).join("") + '</div></div>';
+  }
+  return html;
 }
 document.addEventListener("click", (e) => {
   const act = e.target.dataset && e.target.dataset.eact;
@@ -406,7 +418,28 @@ document.addEventListener("click", (e) => {
   modalExtras[name].qty = Math.max(0, modalExtras[name].qty + (act === "inc" ? 1 : -1));
   const key = "eq_" + name.replace(/[^a-zA-Z0-9]/g, "_");
   const el = document.getElementById(key); if (el) el.textContent = modalExtras[name].qty;
+  const picker = document.getElementById("drinkpick_" + key);
+  if (picker) {
+    if (modalExtras[name].qty > 0) {
+      picker.style.display = "block";
+    } else {
+      picker.style.display = "none";
+      delete modalMealDrink[name];
+      picker.querySelectorAll('input[type=radio]').forEach(r => r.checked = false);
+      picker.querySelectorAll('.choice-opt').forEach(l => l.classList.remove('selected'));
+    }
+  }
   updateModalBtn();
+});
+document.addEventListener("change", (e) => {
+  const name = e.target.dataset && e.target.dataset.drinkFor;
+  if (!name || e.target.type !== "radio") return;
+  modalMealDrink[name] = e.target.value;
+  const group = e.target.closest('.choice-group');
+  if (group) group.querySelectorAll('.choice-opt').forEach(l => {
+    const input = l.querySelector('input');
+    l.classList.toggle('selected', !!(input && input.checked));
+  });
 });
 function changeItemQty(delta) {
   modalQty = Math.max(1, modalQty + delta);
@@ -426,7 +459,19 @@ function updateModalBtn() {
 }
 function confirmAdd() {
   if (!modalItem) return;
-  const sel = Object.entries(modalExtras).filter(([, v]) => v.qty > 0).map(([n, v]) => ({ name: n, qty: v.qty, price: v.price }));
+  // Meal-upgrade extras (fries + soft drink) require picking which drink is included.
+  const mealNames = new Set((EXTRAS.meal || []).map(e => e.n));
+  for (const [name, v] of Object.entries(modalExtras)) {
+    if (v.qty > 0 && mealNames.has(name) && !modalMealDrink[name]) {
+      toast("⚠️ נא לבחור שתייה לשדרוג הארוחה");
+      return;
+    }
+  }
+  const sel = Object.entries(modalExtras).filter(([, v]) => v.qty > 0).map(([n, v]) => {
+    const entry = { name: n, qty: v.qty, price: v.price };
+    if (modalMealDrink[n]) entry.choice = modalMealDrink[n];
+    return entry;
+  });
   const notes = document.getElementById("modal-notes").value.trim();
   const unit = modalUnitPrice();
   for (let i = 0; i < modalQty; i++) {
@@ -440,7 +485,7 @@ function renderMyCart() {
   host.innerHTML = "";
   if (!myCart.length) host.innerHTML = '<div class="muted">הסל ריק</div>';
   myCart.forEach((it, i) => {
-    const extText = (it.extras || []).map(e => e.name + (e.qty > 1 ? " ×" + e.qty : "")).join(", ");
+    const extText = (it.extras || []).map(e => e.name + (e.qty > 1 ? " ×" + e.qty : "") + (e.choice ? " (" + e.choice + ")" : "")).join(", ");
     const d = document.createElement("div"); d.className = "my-cart-item";
     d.innerHTML = '<div><strong>' + escapeHtml(it.name) + '</strong>' +
                   (extText ? '<div class="extras">+ ' + escapeHtml(extText) + '</div>' : '') +
@@ -513,7 +558,7 @@ async function refreshGroup() {
   list.forEach(([phone, p]) => {
     const d = document.createElement("div"); d.className = "participant";
     const itemsHtml = (p.items || []).map(i => {
-      const ext = (i.extras || []).map(e => e.name + (e.qty > 1 ? " ×" + e.qty : "")).join(", ");
+      const ext = (i.extras || []).map(e => e.name + (e.qty > 1 ? " ×" + e.qty : "") + (e.choice ? " (" + e.choice + ")" : "")).join(", ");
       return '<li>' + escapeHtml(i.name) + (ext ? " + " + escapeHtml(ext) : "") + ' (₪' + i.total + ')</li>';
     }).join("");
     d.innerHTML = '<strong>' + escapeHtml(p.name) + '</strong> — ₪' + (p.subtotal || 0) +

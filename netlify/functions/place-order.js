@@ -14,7 +14,6 @@
 // Optional env: TG_TOKEN, TG_CHAT  (Telegram kitchen ping)
 
 const { fbGet, fbSet, fbPush } = require("../../marketing/lib/fb");
-const crypto = require("crypto");
 const SITE_CONFIG = require("../../site.config.js");
 
 const DELIVERY_FEE = 20;
@@ -80,6 +79,23 @@ function flattenPrices(node) {
   return map;
 }
 
+// Build {name -> {price, source}} from SITE_CONFIG.guestMenus (dishes from neighboring
+// businesses a customer can add to their own order). This — not the client — is the
+// only trusted price source for those items, same treatment as flattenPrices(menu).
+function flattenGuestPrices(guestMenus) {
+  const map = new Map();
+  (Array.isArray(guestMenus) ? guestMenus : []).forEach(src => {
+    (Array.isArray(src.sections) ? src.sections : []).forEach(sec => {
+      (Array.isArray(sec.items) ? sec.items : []).forEach(it => {
+        if (it && it.name != null && Number.isFinite(Number(it.price))) {
+          map.set(String(it.name), { price: Number(it.price), source: src.name });
+        }
+      });
+    });
+  });
+  return map;
+}
+
 async function sendTelegram(message) {
   const { TG_TOKEN, TG_CHAT } = process.env;
   if (!TG_TOKEN || !TG_CHAT) return;
@@ -127,6 +143,7 @@ exports.handler = async (event) => {
   ]);
   const menuPrices = flattenPrices(menuNode);
   const extraPrices = flattenPrices(extrasNode);
+  const guestPrices = flattenGuestPrices(SITE_CONFIG.guestMenus);
   const soldOut = new Set((adminState && Array.isArray(adminState.soldOut)) ? adminState.soldOut : []);
 
   // If the menu can't be read at all, fall back to trusting client basePrice rather
@@ -142,11 +159,17 @@ exports.handler = async (event) => {
       return { statusCode: 409, body: JSON.stringify({ error: `הפריט "${itemName}" אזל מהמלאי` }) };
     }
     let basePrice;
-    if (menuLoaded) {
-      if (!menuPrices.has(itemName)) {
-        return { statusCode: 409, body: JSON.stringify({ error: `הפריט "${itemName}" כבר לא בתפריט — רענן את הדף` }) };
-      }
+    let guestSource = null;
+    const guestItem = guestPrices.get(itemName);
+    if (menuLoaded && menuPrices.has(itemName)) {
       basePrice = menuPrices.get(itemName);
+    } else if (guestItem) {
+      // Dish from a neighboring business (SITE_CONFIG.guestMenus) — same order, same
+      // kitchen ticket, priced from our own trusted config rather than the client.
+      basePrice = guestItem.price;
+      guestSource = guestItem.source;
+    } else if (menuLoaded) {
+      return { statusCode: 409, body: JSON.stringify({ error: `הפריט "${itemName}" כבר לא בתפריט — רענן את הדף` }) };
     } else {
       basePrice = Math.max(0, Number(raw.basePrice) || 0);
     }
@@ -155,7 +178,10 @@ exports.handler = async (event) => {
       const en = String(e && e.name || "").slice(0, 80);
       const qty = Math.max(1, Math.min(20, Math.floor(Number(e && e.qty) || 1)));
       const price = menuLoaded && extraPrices.has(en) ? extraPrices.get(en) : Math.max(0, Number(e && e.price) || 0);
-      return { name: en, qty, price };
+      const choice = String(e && e.choice || "").slice(0, 40);
+      const entry = { name: en, qty, price };
+      if (choice) entry.choice = choice;
+      return entry;
     }).filter(e => e.name);
 
     const extrasSum = extras.reduce((s, e) => s + e.qty * e.price, 0);
@@ -165,6 +191,7 @@ exports.handler = async (event) => {
     orderItems.push({
       name: itemName, basePrice, extras,
       choice: choice || null,
+      guestSource: guestSource || null,
       notes: String(raw.notes || "").slice(0, 280),
       total: lineTotal
     });
@@ -222,12 +249,6 @@ exports.handler = async (event) => {
   });
   if (!orderKey) return { statusCode: 502, body: JSON.stringify({ error: "שמירת ההזמנה נכשלה" }) };
 
-  // One-time dough-game token: returned only to this customer and stored in a
-  // function-only node (clients can't read it), so a win can't be minted just from a
-  // publicly-readable orderKey. mint-win-coupon requires a matching, unused token.
-  const gameToken = crypto.randomBytes(16).toString("hex");
-  await fbSet("gameTokens/" + orderKey, { token: gameToken, createdAt: now, used: false }).catch(() => {});
-
   // ── Redeem the coupon (after the order exists, so a failure can't grant a free order) ──
   if (couponRecord) {
     const updates = { usedCount: (couponRecord.usedCount || 0) + 1 };
@@ -268,8 +289,8 @@ exports.handler = async (event) => {
   // ── Telegram kitchen ping ──
   let itemsText = "";
   orderItems.forEach(i => {
-    itemsText += "• " + i.name + (i.choice ? " — " + i.choice : "") + " -- " + i.basePrice + " ₪";
-    if (i.extras && i.extras.length) itemsText += "\n  ↳ " + i.extras.map(e => e.name + (e.qty > 1 ? " x" + e.qty : "") + " (+" + (e.qty * e.price) + "₪)").join(", ");
+    itemsText += "• " + (i.guestSource ? "🏪 " : "") + i.name + (i.guestSource ? " (" + i.guestSource + ")" : "") + (i.choice ? " — " + i.choice : "") + " -- " + i.basePrice + " ₪";
+    if (i.extras && i.extras.length) itemsText += "\n  ↳ " + i.extras.map(e => e.name + (e.qty > 1 ? " x" + e.qty : "") + (e.choice ? " — " + e.choice : "") + " (+" + (e.qty * e.price) + "₪)").join(", ");
     if (i.notes) itemsText += "\n  📝 " + i.notes;
     itemsText += "\n  סה\"כ: " + i.total + " ₪\n";
   });
@@ -287,7 +308,7 @@ exports.handler = async (event) => {
     statusCode: 200,
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      ok: true, orderKey, total, discount, etaMinutes, gameToken,
+      ok: true, orderKey, total, discount, etaMinutes,
       loyaltyRewardCode: (loyaltyOut && loyaltyOut.rewardCode) || null
     })
   };

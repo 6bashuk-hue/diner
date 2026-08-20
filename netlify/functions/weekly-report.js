@@ -20,7 +20,7 @@ function buildReport(orders) {
     const cutoff = Date.now() - 7 * 86400 * 1000;
     const recent = orders.filter(o => (o.ts || 0) >= cutoff);
     let revenue = 0, delivery = 0, pickup = 0, cash = 0, credit = 0,
-        gameWins = 0, couponsUsed = 0, couponDiscount = 0;
+        couponsUsed = 0, couponDiscount = 0;
     const itemCounts = {};
     const newCustomers = new Set();
     const phoneSeen = {};
@@ -28,7 +28,6 @@ function buildReport(orders) {
         revenue += o.total || 0;
         if (o.type === "משלוח") delivery++; else pickup++;
         if (o.payment === "cash") cash++; else credit++;
-        if (o.wonGameCode) gameWins++;
         if (o.couponCode)  { couponsUsed++; couponDiscount += o.discount || 0; }
         (o.items || []).forEach(it => { itemCounts[it.name] = (itemCounts[it.name] || 0) + 1; });
         const phone = String(o.phone || "").replace(/\D/g, "");
@@ -42,7 +41,7 @@ function buildReport(orders) {
         period: { from: cutoff, to: Date.now() },
         orders: recent.length,
         revenue, avg, delivery, pickup, cash, credit,
-        gameWins, couponsUsed, couponDiscount,
+        couponsUsed, couponDiscount,
         newCustomers: newCustomers.size,
         topItems
     };

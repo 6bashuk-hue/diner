@@ -49,7 +49,7 @@ function buildItemsText(participants) {
       let s = "• " + i.name + " -- " + (Number(i.basePrice) || 0) + " ₪";
       if (Array.isArray(i.extras) && i.extras.length) {
         s += "\n  ↳ " + i.extras
-          .map(e => e.name + (Number(e.qty) > 1 ? " x" + e.qty : "") + " (+" + ((Number(e.qty) || 1) * (Number(e.price) || 0)) + "₪)")
+          .map(e => e.name + (Number(e.qty) > 1 ? " x" + e.qty : "") + (e.choice ? " — " + e.choice : "") + " (+" + ((Number(e.qty) || 1) * (Number(e.price) || 0)) + "₪)")
           .join(", ");
       }
       if (i.notes) s += "\n  📝 " + i.notes;

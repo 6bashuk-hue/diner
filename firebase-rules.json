@@ -7,7 +7,7 @@
       ".read": true,
       ".indexOn": ["ts"],
       "$orderId": {
-        ".write": "newData.exists() || (data.exists() && (newData.child('status').val() == 'inprog' || newData.child('status').val() == 'done' || newData.child('wonGameCode').exists() || newData.child('wonGameAt').exists()))",
+        ".write": "newData.exists() || (data.exists() && (newData.child('status').val() == 'inprog' || newData.child('status').val() == 'done'))",
         ".validate": "newData.hasChildren(['name','phone','total','ts']) && newData.child('total').isNumber() && newData.child('total').val() >= 0 && newData.child('ts').isNumber()"
       }
     },
