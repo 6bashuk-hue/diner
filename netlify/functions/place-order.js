@@ -172,6 +172,10 @@ exports.handler = async (event) => {
 
   const orderItems = [];
   let itemsTotal = 0;
+  // Same as itemsTotal but excludes dishes added from a neighboring business's guest
+  // menu — used only for the free-item threshold below, so ordering from 6 בשוק /
+  // אדלה בשוק doesn't help a customer reach it.
+  let ownItemsTotal = 0;
   for (const raw of items) {
     const itemName = String(raw && raw.name || "").slice(0, 120);
     if (!itemName) continue;
@@ -210,6 +214,7 @@ exports.handler = async (event) => {
     const extrasSum = extras.reduce((s, e) => s + e.qty * e.price, 0);
     const lineTotal = basePrice + extrasSum;
     itemsTotal += lineTotal;
+    if (!guestSource) ownItemsTotal += lineTotal;
     const choice = String(raw && raw.choice || "").slice(0, 80);
     orderItems.push({
       name: itemName, basePrice, extras,
@@ -243,12 +248,12 @@ exports.handler = async (event) => {
   let thresholdCfg = await fbGet("marketingConfig/thresholdNudge");
   if (!thresholdCfg || typeof thresholdCfg !== "object") thresholdCfg = DEFAULT_THRESHOLD;
   let thresholdReward = null;
-  const rewardedThreshold = thresholdCfg.enabled && itemsTotal >= Number(thresholdCfg.thresholdAmount || 0);
+  const rewardedThreshold = thresholdCfg.enabled && ownItemsTotal >= Number(thresholdCfg.thresholdAmount || 0);
   if (rewardedThreshold) {
     const r = thresholdCfg.rewardItem || DEFAULT_THRESHOLD.rewardItem;
     orderItems.push({ name: r.name, basePrice: 0, extras: [], notes: r.description || "", total: 0, isThresholdReward: true });
     thresholdReward = {
-      rewarded: true, orderTotal: itemsTotal,
+      rewarded: true, orderTotal: ownItemsTotal,
       threshold: Number(thresholdCfg.thresholdAmount || 0),
       rewardItem: r.name, rewardCost: r.actualCost || 0
     };

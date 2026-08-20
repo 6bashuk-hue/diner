@@ -2020,6 +2020,13 @@ function calcDiscount(itemsTotal) {
     return Math.min(coupon.value, itemsTotal);
 }
 
+// Sum of only the diner's own items (excludes dishes added from a neighboring
+// business's guest menu) — used to gate the free-item threshold nudge below, so
+// ordering from 6 בשוק / אדלה בשוק doesn't help a customer reach it.
+function ownItemsTotal() {
+    return cart.reduce((s, i) => s + (i.guestSource ? 0 : i.total), 0);
+}
+
 // ============================================================
 // THRESHOLD NUDGE — free reward item when itemsTotal crosses threshold
 // ============================================================
@@ -2101,8 +2108,9 @@ function updateCart() {
     const disc       = calcDiscount(itemsTotal);
     const finalTotal = Math.max(0, itemsTotal + fee - disc);
 
-    updateThresholdNudge(itemsTotal);
-    if (thresholdReached(itemsTotal)) {
+    const ownTotal = ownItemsTotal();
+    updateThresholdNudge(ownTotal);
+    if (thresholdReached(ownTotal)) {
         const r = thresholdConfig.rewardItem;
         list.insertAdjacentHTML("beforeend",
             '<li class="freebie-row"><span>🎁 ' + escAttr(r.name) + ' <span class="freebie-badge">חינם</span></span><span>0 ₪</span></li>');
@@ -2346,7 +2354,9 @@ async function submitOrder() {
     try {
         const orderItems = cart.slice();
         let thresholdReward = null;
-        if (thresholdReached(itemsTotal)) {
+        // Guest-source items (added from a neighboring business) don't count toward
+        // the free-item threshold — see ownItemsTotal().
+        if (thresholdReached(ownItemsTotal())) {
             const r = thresholdConfig.rewardItem;
             orderItems.push({
                 name: r.name, basePrice: 0, extras: [], notes: r.description || "",
