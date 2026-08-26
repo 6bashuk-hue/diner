@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Fill in the real vendor-id / product-id of your thermal printer (decimal,
+  not hex) after checking it on the tablet/PC actually connected to it:
+    Android (rooted/ADB shell):  cat /proc/bus/usb/devices   (or `dumpsys usb`)
+    Linux/Mac (PC via USB):      lsusb   ->  ID vvvv:pppp   (hex; convert to decimal)
+  See README.md for the exact commands and for the HPRT TP801's known IDs.
+
+  Without vendorId/productId this filter matches nothing — that's fine, the
+  app still detects the printer at runtime by USB Printer Class (interfaceClass
+  == 7) in UsbThermalPrinterPlugin.findDevice(). This file only controls the
+  "open this app automatically when a matching USB device is plugged in" OS
+  behavior declared in AndroidManifest.xml; it is not required for the plugin
+  itself to find/claim the printer once the app is already open.
+-->
+<resources>
+    <!-- <usb-device vendor-id="1155" product-id="22336" /> -->
+</resources>
