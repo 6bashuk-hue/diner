@@ -1,11 +1,21 @@
 /* Injected by scripts/sync-web.js at build time — NOT part of admin.html's source.
  *
- * Fixes: relative fetch('/.netlify/functions/...') calls break inside Capacitor
- * because the app's own origin is https://localhost, not the real site domain.
- * Rewrites those calls to an absolute URL and routes them through the native
- * NativeHttp plugin (plain HttpURLConnection, see NativeHttpPlugin.kt) instead
- * of the WebView's fetch — which sidesteps CORS entirely, since CORS is a
- * browser/WebView concept that a native HTTP client never triggers.
+ * Routes every fetch() call through the native NativeHttp plugin (plain
+ * HttpURLConnection, see NativeHttpPlugin.kt) instead of the WebView's own
+ * fetch. Two separate problems this fixes:
+ *
+ * 1. Relative fetch('/.netlify/functions/...') calls break inside Capacitor
+ *    because the app's own origin is https://localhost, not the real site
+ *    domain — so they're rewritten to an absolute URL first.
+ * 2. Absolute cross-origin calls (Firebase REST writes in particular —
+ *    fbSet()/fbDelete() in admin.html) can still fail with a plain "network
+ *    error" from https://localhost as the calling origin, even though the
+ *    exact same request works fine from a real https:// origin in a normal
+ *    browser: CORS preflight behavior for non-GET requests is where this
+ *    showed up (PUT/DELETE silently failing while GET kept working). Native
+ *    HttpURLConnection never triggers a browser CORS check at all — for any
+ *    URL, not just our own relative ones — so this sidesteps the whole class
+ *    of issue rather than special-casing the one endpoint that surfaced it.
  *
  * No-op outside Capacitor (e.g. testing admin.html directly in a browser):
  * window.fetch is left completely untouched there.
@@ -17,7 +27,7 @@
 
   var NativeHttp = window.Capacitor.Plugins && window.Capacitor.Plugins.NativeHttp;
   if (!NativeHttp) {
-    console.warn("[native-bridge] NativeHttp plugin unavailable — relative fetch() calls will fail in-app");
+    console.warn("[native-bridge] NativeHttp plugin unavailable — fetch() calls will fail in-app");
     return;
   }
 
@@ -27,12 +37,11 @@
     init = init || {};
     var url = typeof input === "string" ? input : (input && input.url) || "";
 
-    // Only rewrite our own relative API calls. Absolute URLs (Firebase REST,
-    // Google Identity Toolkit, the Sentry CDN script) already work fine as-is
-    // and go through the normal WebView fetch untouched.
-    if (!url.startsWith("/")) return originalFetch(input, init);
+    // Anything that isn't a plain http(s) URL (blob:, data:, etc.) — none of
+    // admin.html's own calls are, but stay out of the way of anything that is.
+    if (!/^https?:\/\//.test(url) && !url.startsWith("/")) return originalFetch(input, init);
 
-    var fullUrl = PROD_ORIGIN + url;
+    var fullUrl = url.startsWith("/") ? PROD_ORIGIN + url : url;
     var method = (init.method || "GET").toUpperCase();
 
     var headers = {};
