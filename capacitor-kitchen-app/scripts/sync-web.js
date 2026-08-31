@@ -46,16 +46,14 @@ function copyFile(relSrc, relDest) {
   console.log(`[sync-web] copied ${relSrc} -> www/${relDest || relSrc}`);
 }
 
-function buildInjectedBlock() {
-  const files = ["fetch-bridge.js", "audio-loop-fix.js"];
+function buildInjectedBlock(files, label) {
   const parts = files.map((name) => {
     const src = fs.readFileSync(path.join(INJECT_DIR, name), "utf8");
     return src.replace(/__PROD_ORIGIN__/g, PROD_ORIGIN);
   });
   return (
-    "\n<!-- ========= Injected at build time by capacitor-kitchen-app/scripts/sync-web.js =========\n" +
-    "     Fixes for running admin.html inside a native Capacitor WebView (relative fetch\n" +
-    "     URLs, audio loop). NOT present in the source admin.html — see www-inject/*.js. -->\n" +
+    `\n<!-- ========= Injected at build time by capacitor-kitchen-app/scripts/sync-web.js (${label}) =========\n` +
+    "     NOT present in the source admin.html — see www-inject/*.js. -->\n" +
     "<script>\n" + parts.join("\n") + "\n</script>\n" +
     "<!-- ========= End injected block ========= -->\n"
   );
@@ -65,11 +63,23 @@ function buildIndexHtml() {
   const srcPath = path.join(REPO_ROOT, SOURCE_HTML);
   let html = fs.readFileSync(srcPath, "utf8");
 
-  const marker = '<script src="site.config.js"></script>';
-  if (!html.includes(marker)) {
-    throw new Error(`[sync-web] expected to find ${JSON.stringify(marker)} in ${SOURCE_HTML} to anchor the injected block`);
+  // Anchor 1: right after site.config.js loads — fetch rewriting/native HTTP
+  // and the audio-loop fix need to be in place before anything else runs.
+  const headMarker = '<script src="site.config.js"></script>';
+  if (!html.includes(headMarker)) {
+    throw new Error(`[sync-web] expected to find ${JSON.stringify(headMarker)} in ${SOURCE_HTML} to anchor the injected block`);
   }
-  html = html.replace(marker, marker + "\n" + buildInjectedBlock());
+  html = html.replace(headMarker, headMarker + "\n" + buildInjectedBlock(["fetch-bridge.js", "audio-loop-fix.js"], "WebView/network fixes"));
+
+  // Anchor 2: right after the WebUSB block ends — the native-printer bridge
+  // must run AFTER admin.html's own IIFE assigns window.escposConnect/
+  // escposIsConnected/escposPrintOrder, so its override isn't clobbered by
+  // that later (in document order) assignment.
+  const webusbEndMarker = "<!-- ========= End WebUSB direct printing ========= -->";
+  if (!html.includes(webusbEndMarker)) {
+    throw new Error(`[sync-web] expected to find ${JSON.stringify(webusbEndMarker)} in ${SOURCE_HTML} to anchor the native-printer bridge`);
+  }
+  html = html.replace(webusbEndMarker, webusbEndMarker + "\n" + buildInjectedBlock(["native-printer-bridge.js"], "native USB printer bridge"));
 
   fs.mkdirSync(WWW_DIR, { recursive: true });
   fs.writeFileSync(path.join(WWW_DIR, "index.html"), html, "utf8");

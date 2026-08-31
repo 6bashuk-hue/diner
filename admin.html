@@ -1352,6 +1352,11 @@ async function printOrder(key) {
   window.escposConnect = escposConnect;
   window.escposIsConnected = escposIsConnected;
   window.escposPrintOrder = escposPrintOrder;
+  // Exposed so the Capacitor app's native-USB bridge (injected at build time —
+  // see capacitor-kitchen-app/) can reuse this exact receipt rendering/ESC-POS
+  // encoding and only swap the transport (navigator.usb isn't implemented in
+  // Android's WebView). No effect in a normal browser.
+  window.escposBuildBytes = buildEscpos;
 
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", escposReconnect);
   else escposReconnect();

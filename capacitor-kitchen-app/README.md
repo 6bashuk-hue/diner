@@ -14,9 +14,11 @@ Class. Chrome (וכל WebView מבוסס Chromium) לא יכול לתפוס (`cl
 `UsbThermalPrinterPlugin` עושה.
 
 הדף `admin.html` **כבר** כולל קוד WebUSB (ראו `PRINTER_WEBUSB.md` בשורש
-הריפו) שעובד היטב בדפדפן רגיל על מחשב/טאבלט שבו אין דרייבר קרנל מתחרה. האפליקציה
-הזו נועדת בדיוק למקרה שבו יש: טאבלט אנדרואיד שמריץ Chrome והמדפסת "תפוסה"
-על ידו.
+הריפו) שעובד היטב בדפדפן רגיל (Chrome/Edge על מחשב/טאבלט) — אבל **בתוך
+ה-WebView של Capacitor, `navigator.usb` לא קיים בכלל** (Android WebView לא
+מממש WebUSB, לא רק "תפוס" ע"י דרייבר קרנל כמו בטאב Chrome רגיל). בלי החלק
+הבא (`native-printer-bridge.js`), הכפתור "🔌 חבר מדפסת USB" בתוך האפליקציה
+פשוט לא היה עושה כלום מעבר להצגת "הדפדפן לא תומך ב-WebUSB".
 
 ## מבנה הפרויקט
 
@@ -24,19 +26,22 @@ Class. Chrome (וכל WebView מבוסס Chromium) לא יכול לתפוס (`cl
 capacitor-kitchen-app/
 ├── capacitor.config.ts       # appId/appName מוגדרים דרך env (ראו טבלה למטה)
 ├── scripts/sync-web.js       # מעתיק admin.html + קבצים סטטיים ל-www/ (build)
-├── www-inject/                # שני קטעי סקריפט שמוזרקים ל-www/index.html בזמן build בלבד
-│   ├── fetch-bridge.js        #   fetch יחסי → NativeHttp (עוקף CORS, מתקן /.netlify/...)
-│   └── audio-loop-fix.js      #   תיקון ל-<audio loop> שלא עובד ב-WebView
+├── www-inject/                     # קטעי סקריפט שמוזרקים ל-www/index.html בזמן build בלבד
+│   ├── fetch-bridge.js             #   כל fetch (יחסי ומוחלט) → NativeHttp, עוקף CORS לגמרי
+│   ├── audio-loop-fix.js           #   תיקון ל-<audio loop> שלא עובד ב-WebView
+│   └── native-printer-bridge.js    #   מחליף את escposConnect/IsConnected/PrintOrder ב-USB נייטיבי
 ├── www/                       # (נוצר ע"י sync-web.js, לא ב-git) — index.html + assets
 └── android/                   # פרויקט Android (נוצר ע"י `npx cap add android`)
     └── app/src/main/java/com/hadiner/kitchen/
         ├── MainActivity.kt          # רושם את שני הפלאגינים לפני super.onCreate()
-        ├── UsbThermalPrinterPlugin.kt # connect / isConnected / printBytes (claimInterface force=true)
+        ├── UsbThermalPrinterPlugin.kt # connect / reconnectSilently / isConnected / printBytes (claimInterface force=true)
         └── NativeHttpPlugin.kt        # HTTP נייטיבי (HttpURLConnection) — לא CapacitorHttp, ראו הסבר למטה
 ```
 
-**חשוב:** `admin.html` המקורי בשורש הריפו **לא משתנה בכלל**. כל תיקון קורה
-בזמן ה-build, ב-`www/index.html` (הקובץ שנוצר, לא ב-git).
+**חשוב:** `admin.html` המקורי בשורש הריפו כמעט ולא משתנה — רק **שורה אחת**
+נוספה בתוך בלוק ה-WebUSB הקיים (`window.escposBuildBytes = buildEscpos;`,
+כדי לחשוף את בניית הקבלה כ-ESC/POS לשימוש חוזר מהאפליקציה הנייטיבית). כל
+שאר התיקון קורה בזמן ה-build, ב-`www/index.html` (הקובץ שנוצר, לא ב-git).
 
 ## למה לא `CapacitorHttp`?
 
@@ -96,21 +101,40 @@ Push לענף `main` שנוגע בקבצים הרלוונטים (או Run workfl
    (`interfaceClass == 7`) ב-`connect()`. ה-XML הזה משפיע רק על "פתח את
    האפליקציה אוטומטית כשמחברים את המדפסת" (intent-filter ב-Manifest).
 
-## חיבור ה-JS ל-USB Printer מתוך admin.html
+## חיבור ה-JS ל-USB Printer — כבר מחובר
 
-`admin.html` כבר חושף `window.escposConnect()` / `window.escposIsConnected()` /
-`window.escposPrintOrder()` (WebUSB). כדי להשתמש בפלאגין הנייטיבי במקום/בנוסף,
-קראו לפלאגין ישירות מהאפליקציה:
+`admin.html` חושף `window.escposConnect()` / `window.escposIsConnected()` /
+`window.escposPrintOrder()`, מבוססים על WebUSB (`navigator.usb`). הבעיה:
+**Android WebView לא מממש WebUSB בכלל** — אז בתוך האפליקציה, שלוש הפונקציות
+האלה לא היו עושות כלום מעבר להצגת "הדפדפן לא תומך ב-WebUSB".
 
-```js
-const { UsbThermalPrinter } = window.Capacitor.Plugins;
-await UsbThermalPrinter.connect({});                 // ריק = זיהוי לפי USB Printer Class
-await UsbThermalPrinter.printBytes({ data: base64EscPosBytes });
-```
+`www-inject/native-printer-bridge.js` (מוזרק **אחרי** בלוק ה-WebUSB ב-build,
+כדי לרוץ אחרי ש-`admin.html` כבר הגדיר את שלוש הפונקציות — כך ה-override שלו
+לא נדרס) מחליף את שלושתן בגרסה מבוססת `UsbThermalPrinter` הנייטיבי, אבל
+**קורא ל-`window.escposBuildBytes` (=`buildEscpos` המקורי) בלי לגעת בו** — כך
+שרינדור הקבלה, הפורמט, וקידוד ה-ESC/POS נשארים בדיוק אותו קוד; רק התחבורה
+(WebUSB מול USB נייטיבי) מוחלפת. בדפדפן רגיל (לא בתוך Capacitor) שום דבר לא
+משתנה — הקוד המקורי של WebUSB ממשיך לרוץ כרגיל.
 
-הפונקציה הקיימת `escposPrintOrder(o)` כבר בונה את בתי ה-ESC/POS (raster image
-של הקבלה) — ניתן לחבר את שני הפלאגינים (WebUSB בדפדפן רגיל, native כשרץ
-בתוך Capacitor) עם אותה בדיקת `window.Capacitor?.isNativePlatform?.()`.
+זרימת החיבור בפועל בתוך האפליקציה:
+1. בעליית האפליקציה: ניסיון `reconnectSilently()` שקט (בלי דיאלוג הרשאה) —
+   מתחבר לבד אם המדפסת כבר אושרה בעבר.
+2. לחיצה על **"🔌 חבר מדפסת USB"**: קוראת ל-`UsbThermalPrinter.connect({})`,
+   שמזהה את המדפסת לפי USB Printer Class ומבקשת הרשאת USB של אנדרואיד אם
+   צריך (דיאלוג מערכת — לא דיאלוג WebUSB).
+3. לחיצה על 🖨 בכרטיס הזמנה: `printOrder()` (לא השתנה) → `escposPrintOrder(o)`
+   → עכשיו זו הגרסה הנייטיבית → `escposBuildBytes(o)` בונה את אותם בתים
+   בדיוק → נשלח דרך `UsbThermalPrinter.printBytes()`.
+
+## הערה מה-self-test של המדפסת (HPRT TP801)
+
+לפי ה-self-test שצילמת: **Cutter: Disable**. הקוד הקיים (`buildEscpos`) שולח
+פקודת חיתוך חלקי (`GS V 66 0`) בסוף כל קבלה — אם ה-DIP switch של המדפסת
+מגדיר את החותך כ-Disable, הפקודה הזו כנראה תתעלם (רוב מדפסות ESC/POS פשוט
+מתעלמות מפקודת חיתוך כשאין חותך פיזי מופעל) ולא תגרום לשגיאה, אבל בפועל
+הנייר לא ייחתך אוטומטית. אם תרצו חיתוך אוטומטי — הפעילו את החותך בהגדרות
+ה-DIP switch של המדפסת עצמה (לא בקוד). Print Resolution `203dpi` תואם בדיוק
+ל-`ESCPOS_WIDTH_DOTS = 576` הקיים (80mm @ 203dpi) — לא נדרש שינוי.
 
 ## הסרה
 
@@ -131,15 +155,16 @@ await UsbThermalPrinter.printBytes({ data: base64EscPosBytes });
 4. **CORS בפועל:** התחברו לאדמין (מסך login) — קריאה ל-`admin-login`
    Function; אם היא נכשלת, בדקו את `PROD_ORIGIN` ב-build ואת ה-CORS headers
    שנוספו.
-5. **חיבור USB:** חברו את המדפסת התרמית (USB-OTG). בדקו logcat
-   (`adb logcat | grep UsbThermalPrinter`) — אמורה להופיע שורת "USB printer
-   connected" אחרי `connect()`.
-6. **הרשאת USB:** בפעם הראשונה אמור לצוץ דיאלוג הרשאת USB של אנדרואיד —
-   אשרו, ווודאו שההרשאה נשמרת בפעם הבאה (בלי דיאלוג חוזר).
-7. **הדפסה בפועל:** הפעילו הדפסה (לפי הכפתור/זרימה שתחברו ב-JS ל-
-   `UsbThermalPrinter.printBytes`) ווודאו שהקבלה יוצאת עם עברית תקינה,
-   וחיתוך תקין ברוחב הנייר (576 dots ל-80mm; אם חתוך — שנו ב-קוד ה-ESC/POS
-   הקיים כפי שמתואר ב-`PRINTER_WEBUSB.md`).
+5. **חיבור USB:** חברו את המדפסת התרמית (USB-OTG) ולחצו **"🔌 חבר מדפסת
+   USB"** בסרגל העליון. בדקו logcat (`adb logcat | grep UsbThermalPrinter`) —
+   אמורה להופיע שורת "USB printer connected".
+6. **הרשאת USB:** בפעם הראשונה אמור לצוץ דיאלוג הרשאת USB של אנדרואיד (לא
+   דיאלוג WebUSB) — אשרו. סגרו ופתחו את האפליקציה מחדש ווודאו שהיא מתחברת
+   לבד (`reconnectSilently`, בלי דיאלוג חוזר).
+7. **הדפסה בפועל:** לחצו 🖨 על כרטיס הזמנה ווודאו שהקבלה יוצאת עם עברית
+   תקינה ורוחב תקין (576 dots ל-80mm תואם ל-203dpi מה-self-test; אם חתוך —
+   שנו ב-קוד ה-ESC/POS הקיים כפי שמתואר ב-`PRINTER_WEBUSB.md`). אם החיתוך
+   האוטומטי לא קורה — בדקו אם ה-Cutter מוגדר Disable ב-DIP switch של המדפסת.
 8. **claimInterface:** אם ההדפסה נכשלת ספציפית עם "Failed to claim USB
    interface" ב-logcat — נסו לנתק ולחבר את המדפסת מחדש, ווודאו שאין אפליקציה
    אחרת (כמו אפליקציית מדפסת של היצרן) שכבר תופסת אותה.

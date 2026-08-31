@@ -108,6 +108,24 @@ class UsbThermalPrinterPlugin : Plugin() {
         usbManager.requestPermission(device, permissionIntent)
     }
 
+    // Like connect(), but never shows the Android USB permission dialog — only
+    // succeeds if this app was already granted permission for the device in a
+    // previous session. Mirrors the old WebUSB flow's silent reconnect
+    // (navigator.usb.getDevices(), which only returns already-authorized
+    // devices), so the app doesn't pop a permission prompt on every launch
+    // before the user has done anything.
+    @PluginMethod
+    fun reconnectSilently(call: PluginCall) {
+        val device = findDevice(null, null)
+        if (device == null || !usbManager.hasPermission(device)) {
+            val ret = JSObject()
+            ret.put("connected", false)
+            call.resolve(ret)
+            return
+        }
+        openDevice(device, call)
+    }
+
     @PluginMethod
     fun isConnected(call: PluginCall) {
         val ret = JSObject()
