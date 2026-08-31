@@ -35,24 +35,35 @@ function messageFor(status, type) {
   return null;
 }
 
+// netlify.toml's [[headers]] block for /.netlify/functions/* only applies to
+// static-asset responses, never to a Function's own response — so CORS must
+// be set here directly. Needed for the Capacitor kitchen app (admin.html
+// wrapped as an Android app), whose WebView origin is https://localhost, not
+// this site's real domain, making every call here cross-origin.
+const CORS_HEADERS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type"
+};
+
 async function handler(event) {
-  if (event.httpMethod === "OPTIONS") return { statusCode: 204, body: "" };
-  if (event.httpMethod !== "POST") return { statusCode: 405, body: "Method not allowed" };
+  if (event.httpMethod === "OPTIONS") return { statusCode: 204, headers: CORS_HEADERS, body: "" };
+  if (event.httpMethod !== "POST") return { statusCode: 405, headers: CORS_HEADERS, body: "Method not allowed" };
 
   let body;
   try { body = JSON.parse(event.body || "{}"); }
-  catch { return { statusCode: 400, body: JSON.stringify({ error: "Invalid JSON" }) }; }
+  catch { return { statusCode: 400, headers: CORS_HEADERS, body: JSON.stringify({ error: "Invalid JSON" }) }; }
 
   const phone = normalizePhone(body.phone);
   const status = String(body.status || "");
   const orderKey = String(body.orderKey || "");
   const type = String(body.type || "איסוף");
   if (!phone || !status) {
-    return { statusCode: 400, body: JSON.stringify({ error: "phone and status required" }) };
+    return { statusCode: 400, headers: CORS_HEADERS, body: JSON.stringify({ error: "phone and status required" }) };
   }
 
   const msg = messageFor(status, type);
-  if (!msg) return { statusCode: 200, body: JSON.stringify({ skipped: true, reason: "no_message_for_status" }) };
+  if (!msg) return { statusCode: 200, headers: CORS_HEADERS, body: JSON.stringify({ skipped: true, reason: "no_message_for_status" }) };
 
   let result = { sent: false, reason: "vapid_missing" };
   try {
@@ -70,6 +81,7 @@ async function handler(event) {
   const fallbackUrl = (result.fallback && result.fallback.url) || whatsappLink(phone, msg.wa);
   return {
     statusCode: 200,
+    headers: CORS_HEADERS,
     body: JSON.stringify({
       sent: !!result.sent,
       reason: result.reason || null,
