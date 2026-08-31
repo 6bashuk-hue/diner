@@ -2,7 +2,9 @@ name: Build kitchen Android app (Capacitor)
 
 on:
   push:
-    branches: [main]
+    # This repo's default branch isn't "main" — it's the branch below. Update
+    # this if the default branch is ever renamed.
+    branches: [claude/american-diner-website-design-1h40kl]
     paths:
       - "capacitor-kitchen-app/**"
       - "admin.html"
