@@ -377,6 +377,12 @@ body.kitchen-alerting { animation: kitchenAlertFlash 0.4s infinite !important; }
 
 /* Connection + clock status bar */
 .kitchen-status-bar {
+  /* Purely a read-only indicator (dot + text + clock, no interactive children) —
+     pointer-events:none so its fixed top-left position + high z-index (needed to
+     stay above everything else) never swallows clicks meant for whatever the
+     kitchen-mode-independent topbar happens to render underneath it (e.g. the
+     WebUSB "חבר מדפסת USB" button, when it lands in that corner). */
+  pointer-events: none;
   position: fixed; top: 8px; left: 8px; background: rgba(0,0,0,0.75); color: #fff;
   padding: 6px 14px; border-radius: 20px; font-size: 14px; z-index: 9999;
   display: none; gap: 8px; align-items: center;
