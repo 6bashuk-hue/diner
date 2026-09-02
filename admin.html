@@ -499,7 +499,7 @@ body.kitchen-mode-on .order-card.status-new {
             <!-- Kitchen Mode: toggle button (added to existing topbar; removable) -->
             <button class="kitchen-mode-toggle" id="kitchen-toggle-btn" onclick="kitchenToggle()">🍳 הפעל מצב מטבח</button>
             <!-- Availability: mark dishes unavailable directly from the KDS (added to existing topbar; removable) -->
-            <button class="availability-btn" id="availability-btn" onclick="openAvailability()">🚫 מנות לא זמינות</button>
+            <button class="availability-btn" id="availability-btn" onclick="try{openAvailability()}catch(e){alert('שגיאה בפתיחת רשימת המנות: '+(e&&e.message?e.message:e))}">🚫 מנות לא זמינות</button>
             <button class="logout-btn" style="background:#444;" onclick="window.location.href='/'">🏪 לאתר</button>
             <button class="logout-btn" style="background:#d21f24;" onclick="window.location.href='/?admin=1'">⚙️ הגדרות</button>
             <button class="logout-btn" style="background:#e8590c;" onclick="window.location.href='/marketing/admin/marketing-dashboard.html'">📣 שיווק</button>
@@ -1723,9 +1723,14 @@ async function printOrder(key) {
   async function openAvailability() {
     document.getElementById("availability-modal").classList.add("open");
     document.getElementById("availability-list").innerHTML = '<p style="color:var(--muted)">טוען...</p>';
-    const [menu, state] = await Promise.all([fbGet("menu"), fbGet("admin_state")]);
-    availSoldOut = new Set((state && state.soldOut) || []);
-    renderAvailabilityList(menu || {});
+    try {
+      const [menu, state] = await Promise.all([fbGet("menu"), fbGet("admin_state")]);
+      availSoldOut = new Set((state && state.soldOut) || []);
+      renderAvailabilityList(menu || {});
+    } catch (e) {
+      document.getElementById("availability-list").innerHTML =
+        '<p style="color:var(--danger)">שגיאה בטעינת התפריט: ' + escapeHtml(e && e.message ? e.message : String(e)) + '</p>';
+    }
   }
   function closeAvailability() {
     document.getElementById("availability-modal").classList.remove("open");
