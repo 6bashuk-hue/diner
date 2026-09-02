@@ -439,6 +439,29 @@ body.kitchen-mode-on .order-card.status-new {
     #confirm-modal, .confirm-box, #login-screen { transition-duration: 0.12s !important; }
     .confirm-box { transform: none !important; }
 }
+
+/* ========================================
+   Availability Feature - ADDED (isolated; removable as a block)
+   Lets the KDS mark dishes unavailable directly — writes to the same
+   admin_state.soldOut Firebase path the site's hidden admin panel (index.html) uses.
+   ======================================== */
+.availability-btn {
+  padding: 0.5rem 0.9rem; background: transparent; color: var(--muted);
+  border: 1px solid var(--border); border-radius: 8px;
+  font-family: 'Rubik', sans-serif; font-size: 0.9rem; font-weight: 700; cursor: pointer;
+}
+#availability-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 700; align-items: center; justify-content: center; padding: 1rem; }
+#availability-modal.open { display: flex; }
+.availability-box { background: var(--surface2); border: 1px solid var(--border); border-radius: 12px; padding: 1.5rem; max-width: 640px; width: 100%; max-height: 85vh; overflow-y: auto; }
+.availability-box h2 { margin-bottom: 1rem; color: var(--primary); }
+.availability-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 0.6rem; }
+.availability-item { display: flex; align-items: center; justify-content: space-between; background: var(--surface); border-radius: 8px; padding: 0.6rem 0.9rem; border: 1px solid var(--border); }
+.availability-item span { font-size: 0.9rem; }
+.availability-check { width: 18px; height: 18px; cursor: pointer; accent-color: var(--primary); }
+.availability-close-btn { margin-top: 1.2rem; width: 100%; background: var(--primary); color: #fff; border: none; border-radius: 8px; padding: 0.8rem; font-family: 'Rubik', sans-serif; font-weight: 700; font-size: 1rem; cursor: pointer; }
+/* ========================================
+   End Availability Feature
+   ======================================== */
 </style>
 </head>
 <body>
@@ -475,6 +498,8 @@ body.kitchen-mode-on .order-card.status-new {
             <button class="escpos-connect-btn" id="escpos-connect-btn" onclick="escposConnect()">🔌 חבר מדפסת USB</button>
             <!-- Kitchen Mode: toggle button (added to existing topbar; removable) -->
             <button class="kitchen-mode-toggle" id="kitchen-toggle-btn" onclick="kitchenToggle()">🍳 הפעל מצב מטבח</button>
+            <!-- Availability: mark dishes unavailable directly from the KDS (added to existing topbar; removable) -->
+            <button class="availability-btn" id="availability-btn" onclick="openAvailability()">🚫 מנות לא זמינות</button>
             <button class="logout-btn" style="background:#444;" onclick="window.location.href='/'">🏪 לאתר</button>
             <button class="logout-btn" style="background:#d21f24;" onclick="window.location.href='/?admin=1'">⚙️ הגדרות</button>
             <button class="logout-btn" style="background:#e8590c;" onclick="window.location.href='/marketing/admin/marketing-dashboard.html'">📣 שיווק</button>
@@ -1647,6 +1672,77 @@ async function printOrder(key) {
 </script>
 <!-- ========================================
      End Kitchen Mode Feature
+     ======================================== -->
+
+<!-- ========================================
+     Availability Feature - ADDED (isolated; removable as a block)
+     Lets the KDS mark dishes unavailable directly, using the same
+     admin_state.soldOut Firebase path the site's admin panel (index.html) uses,
+     so a toggle here is reflected on the live site (and vice versa) within one poll.
+     ======================================== -->
+<div id="availability-modal">
+    <div class="availability-box">
+        <h2>🚫 מנות לא זמינות</h2>
+        <div id="availability-list"><p style="color:var(--muted)">טוען...</p></div>
+        <button class="availability-close-btn" onclick="closeAvailability()">סגור</button>
+    </div>
+</div>
+<script>
+(function () {
+  let availSoldOut = new Set();
+
+  function collectMenuItems(menu) {
+    const items = [];
+    Object.keys(menu || {}).forEach(key => {
+      if (key === "chefSpecial" || key === "coupleMeal") return;
+      const val = menu[key];
+      const arr = Array.isArray(val) ? val : (val && typeof val === "object" ? Object.values(val) : []);
+      arr.forEach(it => { if (it && it.name) items.push(it); });
+    });
+    if (menu.chefSpecial && menu.chefSpecial.enabled !== false && menu.chefSpecial.name) items.push(menu.chefSpecial);
+    if (menu.coupleMeal  && menu.coupleMeal.enabled  !== false && menu.coupleMeal.name)  items.push(menu.coupleMeal);
+    return items;
+  }
+
+  function availItemHTML(item) {
+    const name = item.name;
+    const checked = availSoldOut.has(name);
+    return '<div class="availability-item"><span>' + escapeHtml(name) + '</span>' +
+      '<input type="checkbox" class="availability-check"' + (checked ? " checked" : "") +
+      ' onchange="toggleAvailability(\'' + name.replace(/'/g, "\\'") + '\', this.checked)"></div>';
+  }
+
+  function renderAvailabilityList(menu) {
+    const list = document.getElementById("availability-list");
+    const items = collectMenuItems(menu);
+    list.innerHTML = items.length
+      ? '<div class="availability-grid">' + items.map(availItemHTML).join("") + '</div>'
+      : '<p style="color:var(--muted)">לא נמצא תפריט</p>';
+  }
+
+  async function openAvailability() {
+    document.getElementById("availability-modal").classList.add("open");
+    document.getElementById("availability-list").innerHTML = '<p style="color:var(--muted)">טוען...</p>';
+    const [menu, state] = await Promise.all([fbGet("menu"), fbGet("admin_state")]);
+    availSoldOut = new Set((state && state.soldOut) || []);
+    renderAvailabilityList(menu || {});
+  }
+  function closeAvailability() {
+    document.getElementById("availability-modal").classList.remove("open");
+  }
+  async function toggleAvailability(name, on) {
+    if (on) availSoldOut.add(name); else availSoldOut.delete(name);
+    const ok = await fbSet("admin_state/soldOut", [...availSoldOut]);
+    toast(ok ? (on ? "🚫 " + name + " סומן כלא זמין" : "✅ " + name + " סומן כזמין") : "❌ השמירה נכשלה");
+  }
+
+  window.openAvailability   = openAvailability;
+  window.closeAvailability  = closeAvailability;
+  window.toggleAvailability = toggleAvailability;
+})();
+</script>
+<!-- ========================================
+     End Availability Feature
      ======================================== -->
 
 </body>
