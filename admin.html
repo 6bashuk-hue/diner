@@ -462,6 +462,22 @@ body.kitchen-mode-on .order-card.status-new {
 /* ========================================
    End Availability Feature
    ======================================== */
+
+/* ========================================
+   Delivery/Pickup Service Toggles - ADDED (isolated; removable as a block)
+   Lets the KDS turn deliveries/pickup on or off directly — writes to the same
+   admin_state.deliveryOn / admin_state.pickupOn Firebase path the site's
+   hidden admin panel (index.html) uses.
+   ======================================== */
+.service-toggle-btn {
+  padding: 0.5rem 0.8rem; background: transparent; border-radius: 8px;
+  font-family: 'Rubik', sans-serif; font-size: 0.85rem; font-weight: 700; cursor: pointer;
+}
+.service-toggle-btn.on  { border: 1px solid var(--success); color: var(--success); }
+.service-toggle-btn.off { border: 1px solid var(--danger);  color: var(--danger); }
+/* ========================================
+   End Delivery/Pickup Service Toggles
+   ======================================== */
 </style>
 </head>
 <body>
@@ -499,7 +515,10 @@ body.kitchen-mode-on .order-card.status-new {
             <!-- Kitchen Mode: toggle button (added to existing topbar; removable) -->
             <button class="kitchen-mode-toggle" id="kitchen-toggle-btn" onclick="kitchenToggle()">🍳 הפעל מצב מטבח</button>
             <!-- Availability: mark dishes unavailable directly from the KDS (added to existing topbar; removable) -->
-            <button class="availability-btn" id="availability-btn" onclick="openAvailability()">🚫 מנות לא זמינות</button>
+            <button class="availability-btn" id="availability-btn" onclick="try{openAvailability()}catch(e){alert('שגיאה בפתיחת רשימת המנות: '+(e&&e.message?e.message:e))}">🚫 מנות לא זמינות</button>
+            <!-- Delivery/Pickup service toggles (added to existing topbar; removable) -->
+            <button class="service-toggle-btn on" id="delivery-toggle-btn" onclick="try{toggleDeliveryService()}catch(e){alert('שגיאה: '+(e&&e.message?e.message:e))}">🛵 משלוחים פעילים</button>
+            <button class="service-toggle-btn on" id="pickup-toggle-btn" onclick="try{togglePickupService()}catch(e){alert('שגיאה: '+(e&&e.message?e.message:e))}">🚶 איסוף עצמי פעיל</button>
             <button class="logout-btn" style="background:#444;" onclick="window.location.href='/'">🏪 לאתר</button>
             <button class="logout-btn" style="background:#d21f24;" onclick="window.location.href='/?admin=1'">⚙️ הגדרות</button>
             <button class="logout-btn" style="background:#e8590c;" onclick="window.location.href='/marketing/admin/marketing-dashboard.html'">📣 שיווק</button>
@@ -1723,9 +1742,14 @@ async function printOrder(key) {
   async function openAvailability() {
     document.getElementById("availability-modal").classList.add("open");
     document.getElementById("availability-list").innerHTML = '<p style="color:var(--muted)">טוען...</p>';
-    const [menu, state] = await Promise.all([fbGet("menu"), fbGet("admin_state")]);
-    availSoldOut = new Set((state && state.soldOut) || []);
-    renderAvailabilityList(menu || {});
+    try {
+      const [menu, state] = await Promise.all([fbGet("menu"), fbGet("admin_state")]);
+      availSoldOut = new Set((state && state.soldOut) || []);
+      renderAvailabilityList(menu || {});
+    } catch (e) {
+      document.getElementById("availability-list").innerHTML =
+        '<p style="color:var(--danger)">שגיאה בטעינת התפריט: ' + escapeHtml(e && e.message ? e.message : String(e)) + '</p>';
+    }
   }
   function closeAvailability() {
     document.getElementById("availability-modal").classList.remove("open");
@@ -1743,6 +1767,63 @@ async function printOrder(key) {
 </script>
 <!-- ========================================
      End Availability Feature
+     ======================================== -->
+
+<!-- ========================================
+     Delivery/Pickup Service Toggles - ADDED (isolated; removable as a block)
+     Lets the KDS turn deliveries/pickup on or off directly, using the same
+     admin_state.deliveryOn / admin_state.pickupOn Firebase path the site's
+     admin panel (index.html) uses.
+     ======================================== -->
+<script>
+(function () {
+  let deliveryOn = true;
+  let pickupOn = true;
+
+  function renderToggle(id, on, onLabel, offLabel) {
+    const b = document.getElementById(id);
+    if (!b) return;
+    b.className = "service-toggle-btn " + (on ? "on" : "off");
+    b.textContent = on ? onLabel : offLabel;
+  }
+  function render() {
+    renderToggle("delivery-toggle-btn", deliveryOn, "🛵 משלוחים פעילים", "🛵 משלוחים מושבתים");
+    renderToggle("pickup-toggle-btn",   pickupOn,   "🚶 איסוף עצמי פעיל", "🚶 איסוף עצמי מושבת");
+  }
+
+  async function loadServiceState() {
+    try {
+      const state = await fbGet("admin_state");
+      deliveryOn = !(state && state.deliveryOn === false);
+      pickupOn   = !(state && state.pickupOn   === false);
+      render();
+    } catch (e) { /* keep defaults (both on) */ }
+  }
+
+  async function toggleDeliveryService() {
+    deliveryOn = !deliveryOn;
+    render();
+    const ok = await fbSet("admin_state/deliveryOn", deliveryOn);
+    if (!ok) { deliveryOn = !deliveryOn; render(); }
+    toast(ok ? (deliveryOn ? "🛵 משלוחים הופעלו" : "🛵 משלוחים הושבתו") : "❌ השמירה נכשלה");
+  }
+  async function togglePickupService() {
+    pickupOn = !pickupOn;
+    render();
+    const ok = await fbSet("admin_state/pickupOn", pickupOn);
+    if (!ok) { pickupOn = !pickupOn; render(); }
+    toast(ok ? (pickupOn ? "🚶 איסוף עצמי הופעל" : "🚶 איסוף עצמי הושבת") : "❌ השמירה נכשלה");
+  }
+
+  window.toggleDeliveryService = toggleDeliveryService;
+  window.togglePickupService   = togglePickupService;
+
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", loadServiceState);
+  else loadServiceState();
+})();
+</script>
+<!-- ========================================
+     End Delivery/Pickup Service Toggles
      ======================================== -->
 
 </body>
