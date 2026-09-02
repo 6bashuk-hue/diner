@@ -450,8 +450,14 @@ body.kitchen-mode-on .order-card.status-new {
   border: 1px solid var(--border); border-radius: 8px;
   font-family: 'Rubik', sans-serif; font-size: 0.9rem; font-weight: 700; cursor: pointer;
 }
-#availability-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 700; align-items: center; justify-content: center; padding: 1rem; }
-#availability-modal.open { display: flex; }
+#availability-modal {
+  position: fixed; top: 0; right: 0; bottom: 0; left: 0; z-index: 700;
+  display: flex; align-items: center; justify-content: center; padding: 1rem;
+  background: rgba(0,0,0,0.85);
+  opacity: 0; pointer-events: none;
+  transition: opacity 0.3s;
+}
+#availability-modal.open { opacity: 1; pointer-events: auto; }
 .availability-box { background: var(--surface2); border: 1px solid var(--border); border-radius: 12px; padding: 1.5rem; max-width: 640px; width: 100%; max-height: 85vh; overflow-y: auto; }
 .availability-box h2 { margin-bottom: 1rem; color: var(--primary); }
 .availability-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 0.6rem; }
@@ -1740,6 +1746,7 @@ async function printOrder(key) {
   }
 
   async function openAvailability() {
+    toast("🚫 פותח רשימת מנות...");
     document.getElementById("availability-modal").classList.add("open");
     document.getElementById("availability-list").innerHTML = '<p style="color:var(--muted)">טוען...</p>';
     try {
