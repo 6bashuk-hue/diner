@@ -275,6 +275,9 @@
     .guest-item-side { display: flex; align-items: center; gap: 0.6rem; flex: none; }
     .guest-item-price { font-family: var(--font-display); color: var(--primary); font-size: 0.95rem; white-space: nowrap; }
     .guest-add-btn { background: var(--teal); color: white; border: none; border-radius: 6px; padding: 0.35rem 0.7rem; font-family: 'Rubik', sans-serif; font-weight: bold; font-size: 0.85rem; cursor: pointer; white-space: nowrap; }
+    .guest-item-row.sold-out { opacity: 0.55; }
+    .guest-sold-out-badge { background: #666; color: white; font-size: 0.68rem; font-weight: bold; padding: 0.15rem 0.45rem; border-radius: 4px; margin-right: 0.4rem; }
+    .guest-add-btn:disabled { background: #aaa; cursor: not-allowed; }
     .guest-add-btn:hover { background: var(--teal-dark); }
     .cart-item-guest { font-size: 0.78rem; color: var(--teal-dark); margin-top: 0.15rem; font-weight: 700; }
     /* Modal choice selector (couple's meal pizza pick) */
@@ -1433,7 +1436,7 @@ function startPolling() {
             if (changed) {
                 isBusy = newBusy; soldOut = newSO; deliveryOn = newDel;
                 pickupOn = newPickup; etaMinutes = newEta;
-                applyBusy(); renderMenu(); applyHours();
+                applyBusy(); renderMenu(); applyHours(); renderGuestMenus();
             }
         }
         // Also poll prepTime + promos + menu + extras
@@ -1582,16 +1585,17 @@ function toggleGuestSource(key) {
 function guestItemRow(srcKey, item, hasExtras) {
     const safeSrc  = String(srcKey).replace(/\\/g, "\\\\").replace(/'/g, "\\'");
     const safeName = String(item.name).replace(/\\/g, "\\\\").replace(/'/g, "\\'");
+    const so = soldOut.has(item.name);
     const onclick = hasExtras
         ? "openGuestModal('" + safeSrc + "','" + safeName + "')"
         : "addGuestItem('" + safeSrc + "','" + safeName + "')";
     return (
-        '<div class="guest-item-row">' +
-            '<div><div class="guest-item-name">' + escAttr(item.name) + '</div>' +
+        '<div class="guest-item-row' + (so ? " sold-out" : "") + '">' +
+            '<div><div class="guest-item-name">' + escAttr(item.name) + (so ? ' <span class="guest-sold-out-badge">אזל מהמלאי</span>' : '') + '</div>' +
             (item.desc ? '<div class="guest-item-desc">' + escAttr(item.desc) + '</div>' : '') + '</div>' +
             '<div class="guest-item-side">' +
                 '<span class="guest-item-price">' + item.price + ' ₪</span>' +
-                '<button class="guest-add-btn" onclick="' + onclick + '">+ הוסף</button>' +
+                '<button class="guest-add-btn"' + (so ? " disabled" : "") + ' onclick="' + onclick + '">' + (so ? "אזל" : "+ הוסף") + '</button>' +
             '</div>' +
         '</div>'
     );
@@ -1600,7 +1604,7 @@ function guestItemRow(srcKey, item, hasExtras) {
 function addGuestItem(srcKey, itemName) {
     const src = GUEST_MENUS.find(s => s.key === srcKey);
     const item = src && src.sections.flatMap(s => s.items).find(i => i.name === itemName);
-    if (!src || !item) return;
+    if (!src || !item || soldOut.has(item.name)) return;
     cart.push({
         name:       item.name,
         basePrice:  item.price,
@@ -1625,7 +1629,7 @@ function openGuestModal(srcKey, itemName) {
         const found = (sec.items || []).find(i => i.name === itemName);
         if (found) { item = found; section = sec; }
     });
-    if (!item) return;
+    if (!item || soldOut.has(item.name)) return;
 
     modalItem   = { name: item.name, desc: item.desc || "", price: item.price, choices: null };
     modalExtras = {};
@@ -2720,13 +2724,18 @@ function renderSoldOutGrid() {
     // Include specials if enabled so the admin can mark them sold out too.
     if (chefSpecial && chefSpecial.enabled) allItems.push(chefSpecial);
     if (coupleMeal  && coupleMeal.enabled)  allItems.push(coupleMeal);
-    grid.innerHTML = allItems.map(item =>
-        '<div class="soldout-item">' +
-        "<span>" + item.name + "</span>" +
+    // "עוד מהשכונה" dishes share this same soldOut list — see renderGuestMenus().
+    (GUEST_MENUS || []).forEach(src => (src.sections || []).forEach(sec => (sec.items || []).forEach(it => {
+        if (it && it.name) allItems.push({ name: it.name, _guestLabel: src.name });
+    })));
+    grid.innerHTML = allItems.map(item => {
+        const label = item._guestLabel ? "🏪 " + item._guestLabel + " — " + item.name : item.name;
+        return '<div class="soldout-item">' +
+        "<span>" + label + "</span>" +
         '<input type="checkbox" class="soldout-check"' + (soldOut.has(item.name) ? " checked" : "") +
         ' onchange="toggleSoldOut(\'' + item.name.replace(/'/g, "\\'") + '\',this.checked)">' +
-        "</div>"
-    ).join("");
+        "</div>";
+    }).join("");
     const td = document.getElementById("toggle-delivery");
     const tp = document.getElementById("toggle-pickup");
     if (td) td.checked = deliveryOn;
@@ -2735,7 +2744,7 @@ function renderSoldOutGrid() {
 
 function toggleSoldOut(name, on) {
     if (on) soldOut.add(name); else soldOut.delete(name);
-    saveAdminState(); renderMenu();
+    saveAdminState(); renderMenu(); renderGuestMenus();
 }
 
 // ============================================================
