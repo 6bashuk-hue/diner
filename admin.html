@@ -1732,9 +1732,14 @@ async function printOrder(key) {
   function availItemHTML(item) {
     const name = item.name;
     const checked = availSoldOut.has(name);
+    // JSON.stringify gives a safe JS string literal (handles embedded quotes/backslashes);
+    // escapeHtml then escapes that literal for the surrounding HTML attribute — a name
+    // containing a literal " (e.g. an abbreviation like תפו"א) would otherwise truncate
+    // the onchange="..." attribute and silently break the checkbox.
+    const call = "toggleAvailability(" + JSON.stringify(name) + ", this.checked)";
     return '<div class="availability-item"><span>' + escapeHtml(name) + '</span>' +
       '<input type="checkbox" class="availability-check"' + (checked ? " checked" : "") +
-      ' onchange="toggleAvailability(\'' + name.replace(/'/g, "\\'") + '\', this.checked)"></div>';
+      ' onchange="' + escapeHtml(call) + '"></div>';
   }
 
   function renderAvailabilityList(menu) {
