@@ -103,7 +103,12 @@ async function handler(event) {
     }
   }
 
-  const group = await fbGet("groupOrders/" + groupId);
+  let group;
+  try {
+    group = await fbGet("groupOrders/" + groupId);
+  } catch (e) {
+    return { statusCode: 500, body: JSON.stringify({ error: "שגיאה בטעינת הקבוצה, נסה שוב", detail: e.message }) };
+  }
   if (!group) return { statusCode: 404, body: JSON.stringify({ error: "Group not found" }) };
   if (group.managerPhone !== managerPhone) return { statusCode: 403, body: JSON.stringify({ error: "Only manager can submit" }) };
   if (group.status !== "open") return { statusCode: 409, body: JSON.stringify({ error: "Already submitted" }) };
@@ -111,7 +116,12 @@ async function handler(event) {
   // ── Closed check ──
   // Hours (Asia/Jerusalem) AND the owner's manual toggles from admin_state.
   const { pickupOpen, deliveryOpen, msg: hoursMsg } = getILHoursStatus();
-  const adminState = (await fbGet("admin_state")) || {};
+  let adminState;
+  try {
+    adminState = (await fbGet("admin_state")) || {};
+  } catch (e) {
+    return { statusCode: 500, body: JSON.stringify({ error: "שגיאה בבדיקת שעות פתיחה, נסה שוב", detail: e.message }) };
+  }
   const pickupOn = adminState.pickupOn !== false;
   const deliveryOn = adminState.deliveryOn !== false;
   const effectivePickup = pickupOpen && pickupOn;
@@ -166,8 +176,13 @@ async function handler(event) {
     ts: now,
     date: new Date(now).toLocaleString("he-IL", { timeZone: "Asia/Jerusalem" })
   };
-  const orderKey = await fbPush("orders", orderRecord);
-  await fbPatch("groupOrders/" + groupId, { status: "submitted", submittedAt: now, orderKey });
+  let orderKey;
+  try {
+    orderKey = await fbPush("orders", orderRecord);
+    await fbPatch("groupOrders/" + groupId, { status: "submitted", submittedAt: now, orderKey });
+  } catch (e) {
+    return { statusCode: 500, body: JSON.stringify({ error: "שגיאה בשליחת ההזמנה, נסה שוב", detail: e.message }) };
+  }
 
   // Delivery fee shown as its own line item — always visible in the breakdown,
   // not just in the summary header, so it's never missed on the printed ticket.

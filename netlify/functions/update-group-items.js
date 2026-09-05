@@ -37,41 +37,50 @@ async function handler(event) {
     return { statusCode: 400, body: JSON.stringify({ error: "Invalid groupId" }) };
   }
 
-  const group = await fbGet("groupOrders/" + groupId);
+  let group;
+  try {
+    group = await fbGet("groupOrders/" + groupId);
+  } catch (e) {
+    return { statusCode: 500, body: JSON.stringify({ error: "שגיאה בטעינת הקבוצה, נסה שוב", detail: e.message }) };
+  }
   if (!group) return { statusCode: 404, body: JSON.stringify({ error: "Group not found" }) };
   if (group.status !== "open") return { statusCode: 410, body: JSON.stringify({ error: "Group already submitted" }) };
   if (group.expiresAt < Date.now()) {
     return { statusCode: 410, body: JSON.stringify({ error: "Group expired" }) };
   }
 
-  // ── Re-price every line against the live menu (same trusted source as place-order.js) ──
-  const [menuNode, extrasNode, adminState] = await Promise.all([
-    fbGet("menu"), fbGet("siteSettings/extras"), fbGet("admin_state")
-  ]);
-  const menuPrices = flattenPrices(menuNode);
-  const extraPrices = flattenPrices(extrasNode);
-  const guestPrices = flattenGuestPrices(SITE_CONFIG.guestMenus);
-  const guestExtraPrices = flattenGuestExtraPrices(SITE_CONFIG.guestMenus);
-  const soldOut = new Set((adminState && Array.isArray(adminState.soldOut)) ? adminState.soldOut : []);
-  const menuLoaded = menuPrices.size > 0;
-
-  let orderItems;
+  let orderItems, totalAmount, subtotal;
   try {
-    ({ orderItems } = priceCart(items, { menuPrices, extraPrices, guestPrices, guestExtraPrices, soldOut, menuLoaded }));
+    // ── Re-price every line against the live menu (same trusted source as place-order.js) ──
+    const [menuNode, extrasNode, adminState] = await Promise.all([
+      fbGet("menu"), fbGet("siteSettings/extras"), fbGet("admin_state")
+    ]);
+    const menuPrices = flattenPrices(menuNode);
+    const extraPrices = flattenPrices(extrasNode);
+    const guestPrices = flattenGuestPrices(SITE_CONFIG.guestMenus);
+    const guestExtraPrices = flattenGuestExtraPrices(SITE_CONFIG.guestMenus);
+    const soldOut = new Set((adminState && Array.isArray(adminState.soldOut)) ? adminState.soldOut : []);
+    const menuLoaded = menuPrices.size > 0;
+
+    try {
+      ({ orderItems } = priceCart(items, { menuPrices, extraPrices, guestPrices, guestExtraPrices, soldOut, menuLoaded }));
+    } catch (e) {
+      if (e instanceof PricingError) return { statusCode: e.statusCode, body: JSON.stringify({ error: e.message }) };
+      throw e;
+    }
+
+    subtotal = orderItems.reduce((s, i) => s + i.total, 0);
+    await fbSet("groupOrders/" + groupId + "/participants/" + phone, {
+      name, items: orderItems, subtotal, updatedAt: Date.now(),
+      joinedAt: (group.participants && group.participants[phone] && group.participants[phone].joinedAt) || Date.now()
+    });
+
+    const fresh = await fbGet("groupOrders/" + groupId + "/participants");
+    totalAmount = Object.values(fresh || {}).reduce((s, p) => s + (p.subtotal || 0), 0);
+    await fbPatch("groupOrders/" + groupId, { totalAmount });
   } catch (e) {
-    if (e instanceof PricingError) return { statusCode: e.statusCode, body: JSON.stringify({ error: e.message }) };
-    throw e;
+    return { statusCode: 500, body: JSON.stringify({ error: "שגיאה בשמירת העגלה, נסה שוב", detail: e.message }) };
   }
-
-  const subtotal = orderItems.reduce((s, i) => s + i.total, 0);
-  await fbSet("groupOrders/" + groupId + "/participants/" + phone, {
-    name, items: orderItems, subtotal, updatedAt: Date.now(),
-    joinedAt: (group.participants && group.participants[phone] && group.participants[phone].joinedAt) || Date.now()
-  });
-
-  const fresh = await fbGet("groupOrders/" + groupId + "/participants");
-  const totalAmount = Object.values(fresh || {}).reduce((s, p) => s + (p.subtotal || 0), 0);
-  await fbPatch("groupOrders/" + groupId, { totalAmount });
 
   return { statusCode: 200, body: JSON.stringify({ success: true, totalAmount, items: orderItems, subtotal }) };
 }

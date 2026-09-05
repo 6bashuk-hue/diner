@@ -29,15 +29,19 @@ async function handler(event) {
 
   const groupId = genGroupId();
   const now = Date.now();
-  await fbSet("groupOrders/" + groupId, {
-    groupId, createdAt: now, expiresAt: now + 86400000,
-    status: "open",
-    managerPhone, managerName,
-    participants: {
-      [managerPhone]: { name: managerName, joinedAt: now, items: [], subtotal: 0 }
-    },
-    totalAmount: 0
-  });
+  try {
+    await fbSet("groupOrders/" + groupId, {
+      groupId, createdAt: now, expiresAt: now + 86400000,
+      status: "open",
+      managerPhone, managerName,
+      participants: {
+        [managerPhone]: { name: managerName, joinedAt: now, items: [], subtotal: 0 }
+      },
+      totalAmount: 0
+    });
+  } catch (e) {
+    return { statusCode: 500, body: JSON.stringify({ error: "שגיאה ביצירת הקבוצה, נסה שוב", detail: e.message }) };
+  }
 
   const origin = (event.headers && (event.headers.origin || ("https://" + event.headers.host))) || SITE_CONFIG.business.canonicalUrl;
   return {
