@@ -20,6 +20,20 @@ function endpoint(path) {
   return u;
 }
 
+// FB_URL itself is not a secret (the browser pages read it straight from
+// site.config.js), so it's safe to surface in error messages — it's the
+// fastest way to tell a wrong/misconfigured Netlify env var apart from an
+// actual Firebase rules/permission failure.
+function safeHost() {
+  try { return new URL(process.env.FB_URL).host; } catch { return String(process.env.FB_URL); }
+}
+
+async function describeFailure(r) {
+  let bodyText = "";
+  try { bodyText = (await r.text()).trim().slice(0, 200); } catch {}
+  return `(${r.status}) host=${safeHost()}${bodyText ? " body=" + JSON.stringify(bodyText) : ""}`;
+}
+
 const JSON_HEADERS = { "Content-Type": "application/json" };
 
 async function fbGet(path) {
@@ -30,27 +44,27 @@ async function fbGet(path) {
 
 async function fbSet(path, data) {
   const r = await fetch(endpoint(path), { method: "PUT", headers: JSON_HEADERS, body: JSON.stringify(data) });
-  if (!r.ok) throw new Error(`fbSet failed (${r.status}) for ${path}`);
+  if (!r.ok) throw new Error(`fbSet failed ${await describeFailure(r)} for ${path}`);
   return r.json().catch(() => null);
 }
 
 async function fbPatch(path, data) {
   const r = await fetch(endpoint(path), { method: "PATCH", headers: JSON_HEADERS, body: JSON.stringify(data) });
-  if (!r.ok) throw new Error(`fbPatch failed (${r.status}) for ${path}`);
+  if (!r.ok) throw new Error(`fbPatch failed ${await describeFailure(r)} for ${path}`);
   return r.json().catch(() => null);
 }
 
 // Push a new child under `path`, returns the generated key.
 async function fbPush(path, data) {
   const r = await fetch(endpoint(path), { method: "POST", headers: JSON_HEADERS, body: JSON.stringify(data) });
-  if (!r.ok) throw new Error(`fbPush failed (${r.status}) for ${path}`);
+  if (!r.ok) throw new Error(`fbPush failed ${await describeFailure(r)} for ${path}`);
   const j = await r.json();
   return j && j.name;
 }
 
 async function fbDelete(path) {
   const r = await fetch(endpoint(path), { method: "DELETE" });
-  if (!r.ok) throw new Error(`fbDelete failed (${r.status}) for ${path}`);
+  if (!r.ok) throw new Error(`fbDelete failed ${await describeFailure(r)} for ${path}`);
   return true;
 }
 
