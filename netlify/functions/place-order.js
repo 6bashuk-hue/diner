@@ -236,12 +236,17 @@ exports.handler = async (event) => {
     if (i.notes) itemsText += "\n  📝 " + i.notes;
     itemsText += "\n  סה\"כ: " + i.total + " ₪\n";
   });
+  // Delivery fee shown as its own line item — always visible in the breakdown,
+  // not just in the summary header, so it's never missed on the printed ticket.
+  if (type === "משלוח") itemsText += "• 🛵 משלוח (" + zone.label + ") -- " + fee + " ₪\n";
   let msg = "🍔 *הזמנה חדשה -- " + SITE_CONFIG.business.name + "*\n━━━━━━━━━━━━━━━━━\n";
   msg += "👤 *שם:* " + name + "\n📞 *טלפון:* " + phone + "\n🚲 *סוג:* " + type + "\n";
   msg += "💰 *תשלום:* " + paymentLabel + (payment === "credit" ? " — ⚠️ להתקשר" : "") + "\n";
   if (type === "משלוח") {
+    // Address always shown for a delivery — the real street address for ערד, or the
+    // zone name itself (בא"ח/נבטים) when no free-text address applies.
+    msg += "📍 *כתובת:* " + (address || zone.label) + "\n";
     msg += "🗺️ *אזור משלוח:* " + zone.label + "\n";
-    if (address) msg += "📍 *כתובת:* " + address + "\n";
     msg += "💵 דמי משלוח: " + fee + " ₪\n";
   }
   if (courierNotes) msg += "🛵 *הערה לשליח:* " + courierNotes + "\n";

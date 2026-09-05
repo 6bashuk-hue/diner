@@ -992,8 +992,8 @@ function buildCard(key, o, status) {
             <div>
                 <div class="card-name">${escapeHtml(o.name || 'לא ידוע')}</div>
                 <div class="card-phone">📞 ${escapeHtml(o.phone || '')}</div>
-                ${isDelivery && o.deliveryZone && o.deliveryZone.label ? `<div class="card-zone">🗺️ ${escapeHtml(o.deliveryZone.label)}</div>` : ''}
-                ${isDelivery && o.address ? `<div class="card-address">📍 ${escapeHtml(o.address)}</div>` : ''}
+                ${isDelivery ? `<div class="card-address">📍 ${escapeHtml(o.address || (o.deliveryZone && o.deliveryZone.label) || '')}</div>` : ''}
+                ${isDelivery && o.deliveryZone && o.deliveryZone.label ? `<div class="card-zone">🗺️ ${escapeHtml(o.deliveryZone.label)}${o.deliveryZone.fee ? ` · 🛵 ${o.deliveryZone.fee} ₪` : ''}</div>` : ''}
                 ${o.courierNotes ? `<div class="card-courier-notes">🛵 הערה לשליח: ${escapeHtml(o.courierNotes)}</div>` : ''}
             </div>
             <div class="card-badges">
@@ -1177,12 +1177,13 @@ function buildReceiptHtml(o) {
         '<div class="r-bold">' + escapeHtml(o.name || '') + '</div>' +
         '<div>📞 ' + escapeHtml(o.phone || '') + '</div>' +
         '<div>' + escapeHtml(o.type || '') + '</div>' +
+        (o.type === 'משלוח' ? '<div>📍 ' + escapeHtml(o.address || (o.deliveryZone && o.deliveryZone.label) || '') + '</div>' : '') +
         (o.type === 'משלוח' && o.deliveryZone && o.deliveryZone.label ? '<div class="r-bold">🗺️ ' + escapeHtml(o.deliveryZone.label) + '</div>' : '') +
-        (o.type === 'משלוח' && o.address ? '<div>📍 ' + escapeHtml(o.address) + '</div>' : '') +
         '<div class="r-bold">' + (o.payment === 'cash' ? '💵 תשלום: מזומן' : '💳 תשלום: אשראי טלפוני') + '</div>' +
         (o.courierNotes ? '<div class="r-bold">🛵 הערה לשליח: ' + escapeHtml(o.courierNotes) + '</div>' : '') +
         '<div class="r-hr"></div>' +
         itemsHtml +
+        (o.type === 'משלוח' && o.deliveryZone ? '<div class="r-item"><div class="r-row r-bold"><span>🛵 משלוח (' + escapeHtml(o.deliveryZone.label) + ')</span><span>' + (o.deliveryZone.fee || 0) + ' ₪</span></div></div>' : '') +
         '<div class="r-hr"></div>' +
         (o.couponCode ? '<div class="r-row"><span>🎟 ' + escapeHtml(o.couponCode) + '</span><span>-' + (o.discount || 0) + ' ₪</span></div>' : '') +
         '<div class="r-row r-big"><span>סה״כ:</span><span>' + (o.total || 0) + ' ₪</span></div>' +
@@ -1350,8 +1351,8 @@ async function printOrder(key) {
     right(o.name || "", 32, true);
     right("טלפון: " + (o.phone || ""), 24, false);
     right("סוג: " + (o.type || ""), 24, false);
+    if (o.type === "משלוח") right("כתובת: " + (o.address || (o.deliveryZone && o.deliveryZone.label) || ""), 24, false);
     if (o.type === "משלוח" && o.deliveryZone && o.deliveryZone.label) right("אזור: " + o.deliveryZone.label, 26, true);
-    if (o.type === "משלוח" && o.address) right("כתובת: " + o.address, 24, false);
     right("תשלום: " + (o.payment === "cash" ? "מזומן" : "אשראי טלפוני"), 26, true);
     if (o.courierNotes) right("🛵 הערה לשליח: " + o.courierNotes, 24, true);
     hr();
@@ -1363,6 +1364,7 @@ async function printOrder(key) {
       if (extras) right("+ " + extras, 21, false);
       if (i.notes) right("הערה: " + i.notes, 21, false);
     });
+    if (o.type === "משלוח" && o.deliveryZone) rowRL("🛵 משלוח (" + o.deliveryZone.label + ")", (o.deliveryZone.fee || 0) + " ₪", 27, true);
     hr();
     if (o.couponCode) rowRL(o.couponCode, "-" + (Number(o.discount) || 0) + " ₪", 24, false);
     rowRL('סה"כ:', (Number(o.total) || 0) + " ₪", 36, true);

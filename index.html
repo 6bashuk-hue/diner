@@ -1923,7 +1923,7 @@ function extraRow(e, groupKey) {
             '<div class="extras-title" style="margin:0.5rem 0 0.3rem;font-size:0.85rem;">🥤 בחרו שתייה קלה לשדרוג</div>' +
             '<div class="choice-group">' + MEAL_DRINK_OPTIONS.map(d =>
                 '<label class="choice-opt">' +
-                '<input type="radio" name="mealdrink_' + key + '" value="' + escAttr(d) + '" onchange="selectMealDrink(\'' + safeName + '\', this)">' +
+                '<input type="radio" name="mealdrink_' + key + '" value="' + escAttr(d) + '" onchange="' + escAttr("selectMealDrink(" + JSON.stringify(e.n) + ", this)") + '">' +
                 '<span>' + escAttr(d) + '</span></label>'
             ).join("") + '</div>' +
         '</div>';
@@ -2398,13 +2398,14 @@ async function submitOrder() {
         if (item.notes) itemsText += "\n  📝 " + item.notes;
         itemsText += "\n  סה\"כ: " + item.total + " ₪\n";
     });
+    if (type === "משלוח" && zone) itemsText += "• 🛵 משלוח (" + zone.label + ") -- " + fee + " ₪\n";
 
     let msg = "🍔 *הזמנה חדשה -- " + SITE_CONFIG.business.name + "*\n━━━━━━━━━━━━━━━━━\n";
     msg += "👤 *שם:* " + name + "\n📞 *טלפון:* " + phone + "\n🚲 *סוג:* " + type + "\n";
     msg += "💰 *תשלום:* " + paymentLabel + (payment === "credit" ? " — ⚠️ להתקשר" : "") + "\n";
     if (type === "משלוח" && zone) {
+        msg += "📍 *כתובת:* " + (address || zone.label) + "\n";
         msg += "🗺️ *אזור משלוח:* " + zone.label + "\n";
-        if (address) msg += "📍 *כתובת:* " + address + "\n";
         msg += "💵 דמי משלוח: " + fee + " ₪\n";
     }
     if (courierNotes) msg += "🛵 *הערה לשליח:* " + courierNotes + "\n";

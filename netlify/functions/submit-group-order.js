@@ -169,14 +169,20 @@ async function handler(event) {
   const orderKey = await fbPush("orders", orderRecord);
   await fbPatch("groupOrders/" + groupId, { status: "submitted", submittedAt: now, orderKey });
 
-  const itemsText = buildItemsText(participants);
+  // Delivery fee shown as its own line item — always visible in the breakdown,
+  // not just in the summary header, so it's never missed on the printed ticket.
+  const itemsText = buildItemsText(participants) +
+    (wantsDeliveryType ? "\n\n• 🛵 משלוח (" + zone.label + ") -- " + zone.fee + " ₪" : "");
   await notifyOwner(
     "🍔 *הזמנה קבוצתית חדשה* (" + groupId + ")\n" +
     "━━━━━━━━━━━━━━━━━\n" +
     "👤 *מנהל:* " + group.managerName + "\n📞 *טלפון:* " + managerPhone + "\n" +
     "🚲 *סוג:* " + (delivery.type || "איסוף") +
-    (wantsDeliveryType ? "\n🗺️ *אזור משלוח:* " + zone.label + " (💵 " + zone.fee + " ₪)" : "") +
-    (address ? "\n📍 *כתובת:* " + address : "") + "\n" +
+    (wantsDeliveryType
+      // Address always shown for a delivery — the real street address for ערד, or the
+      // zone name itself (בא"ח/נבטים) when no free-text address applies.
+      ? "\n📍 *כתובת:* " + (address || zone.label) + "\n🗺️ *אזור משלוח:* " + zone.label + " (💵 " + zone.fee + " ₪)"
+      : "") + "\n" +
     "💰 *תשלום:* " + (delivery.payment === "credit" ? "💳 אשראי טלפוני — ⚠️ להתקשר" : "💵 מזומן") + "\n" +
     (courierNotes ? "🛵 *הערה לשליח:* " + courierNotes + "\n" : "") +
     "━━━━━━━━━━━━━━━━━\n📦 *פירוט לפי משתתף:*\n\n" + itemsText + "\n" +

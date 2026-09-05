@@ -194,7 +194,7 @@
 
 <script>
 const FB_URL = SITE_CONFIG.firebase.dbUrl;
-async function fbGet(p) { const r = await fetch(FB_URL + p + ".json"); return r.ok ? r.json() : null; }
+async function fbGet(p) { try { const r = await fetch(FB_URL + p + ".json"); return r.ok ? r.json() : null; } catch { return null; } }
 document.getElementById("group-brand-name").textContent = SITE_CONFIG.business.name;
 function showMsg(elId, text, ok) { const e = document.getElementById(elId); if (e) e.innerHTML = '<div class="msg ' + (ok ? "ok" : "err") + '">' + text + '</div>'; }
 function normalizePhone(p) { return String(p || "").replace(/\D/g, "").replace(/^972/, "0"); }
