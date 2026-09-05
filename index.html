@@ -1602,19 +1602,21 @@ function toggleGuestSource(key) {
 }
 
 function guestItemRow(srcKey, item, hasExtras) {
-    const safeSrc  = String(srcKey).replace(/\\/g, "\\\\").replace(/'/g, "\\'");
-    const safeName = String(item.name).replace(/\\/g, "\\\\").replace(/'/g, "\\'");
     const so = soldOut.has(item.name);
+    // JSON.stringify gives a safe JS string literal (handles embedded quotes/backslashes);
+    // escAttr then escapes that literal for the surrounding HTML attribute — a name
+    // containing a literal " (e.g. an abbreviation like תפו"א) would otherwise truncate
+    // the onclick="..." attribute and silently break the button.
     const onclick = hasExtras
-        ? "openGuestModal('" + safeSrc + "','" + safeName + "')"
-        : "addGuestItem('" + safeSrc + "','" + safeName + "')";
+        ? "openGuestModal(" + JSON.stringify(srcKey) + "," + JSON.stringify(item.name) + ")"
+        : "addGuestItem(" + JSON.stringify(srcKey) + "," + JSON.stringify(item.name) + ")";
     return (
         '<div class="guest-item-row' + (so ? " sold-out" : "") + '">' +
             '<div><div class="guest-item-name">' + escAttr(item.name) + (so ? ' <span class="guest-sold-out-badge">אזל מהמלאי</span>' : '') + '</div>' +
             (item.desc ? '<div class="guest-item-desc">' + escAttr(item.desc) + '</div>' : '') + '</div>' +
             '<div class="guest-item-side">' +
                 '<span class="guest-item-price">' + item.price + ' ₪</span>' +
-                '<button class="guest-add-btn"' + (so ? " disabled" : "") + ' onclick="' + onclick + '">' + (so ? "אזל" : "+ הוסף") + '</button>' +
+                '<button class="guest-add-btn"' + (so ? " disabled" : "") + ' onclick="' + escAttr(onclick) + '">' + (so ? "אזל" : "+ הוסף") + '</button>' +
             '</div>' +
         '</div>'
     );
@@ -1900,17 +1902,18 @@ function openModal(idx) {
 
 function extraRow(e, groupKey) {
     const key = "eq_" + e.n.replace(/\s/g, "_");
-    // Extra names can contain an apostrophe (e.g. "צ'יפס") — escape it so it
-    // doesn't terminate the JS string literal inside the onclick attribute
-    // (which silently broke the +/- buttons for any such extra).
-    const safeName = String(e.n).replace(/\\/g, "\\\\").replace(/'/g, "\\'");
+    // JSON.stringify gives a safe JS string literal (handles embedded quotes/
+    // apostrophes/backslashes, e.g. "צ'יפס" or a name with a literal "); escAttr
+    // then escapes that literal for the surrounding HTML attribute — otherwise it
+    // can silently truncate the onclick="..." attribute and break the +/- buttons.
+    const safeCall = JSON.stringify(e.n) + ',' + e.p;
     let html = (
         '<div class="extra-row">' +
         "<div><span>" + escAttr(e.n) + "</span> <span class=\"extra-price\">+" + e.p + " ₪</span></div>" +
         '<div class="qty-ctrl">' +
-        '<button class="qty-btn" onclick="changeExtra(\'' + safeName + '\',' + e.p + ',-1)">−</button>' +
+        '<button class="qty-btn" onclick="' + escAttr("changeExtra(" + safeCall + ",-1)") + '">−</button>' +
         '<span class="qty-num" id="' + key + '">0</span>' +
-        '<button class="qty-btn" onclick="changeExtra(\'' + safeName + '\',' + e.p + ',1)">+</button>' +
+        '<button class="qty-btn" onclick="' + escAttr("changeExtra(" + safeCall + ",1)") + '">+</button>' +
         "</div></div>"
     );
     // The meal-upgrade group (fries + soft drink) needs the customer to pick which
@@ -2597,11 +2600,10 @@ function openUpsell() {
     refreshUpsellTiles();
 }
 function upsellTile(item) {
-    const safeName = String(item.name).replace(/'/g, "\\'");
     return (
-        '<div class="upsell-tile" data-name="' + escAttr(item.name) + '" onclick="upsellAdd(\'' + safeName + '\')">' +
-            '<div class="upsell-tile-name">' + item.name + '</div>' +
-            (item.desc ? '<div class="upsell-tile-desc">' + item.desc + '</div>' : '') +
+        '<div class="upsell-tile" data-name="' + escAttr(item.name) + '" onclick="' + escAttr("upsellAdd(" + JSON.stringify(item.name) + ")") + '">' +
+            '<div class="upsell-tile-name">' + escAttr(item.name) + '</div>' +
+            (item.desc ? '<div class="upsell-tile-desc">' + escAttr(item.desc) + '</div>' : '') +
             '<div class="upsell-tile-bottom">' +
                 '<span class="upsell-tile-price">' + item.price + ' ₪</span>' +
                 '<span class="upsell-qty" data-name="' + escAttr(item.name) + '"></span>' +
@@ -2785,10 +2787,15 @@ function renderSoldOutGrid() {
     })));
     grid.innerHTML = allItems.map(item => {
         const label = item._guestLabel ? "🏪 " + item._guestLabel + " — " + item.name : item.name;
+        // JSON.stringify gives a safe JS string literal (handles embedded quotes/backslashes);
+        // escAttr then escapes that literal for the surrounding HTML attribute — a name
+        // containing a literal " (e.g. an abbreviation like תפו"א) would otherwise truncate
+        // the onchange="..." attribute and silently break the checkbox.
+        const call = "toggleSoldOut(" + JSON.stringify(item.name) + ",this.checked)";
         return '<div class="soldout-item">' +
-        "<span>" + label + "</span>" +
+        "<span>" + escAttr(label) + "</span>" +
         '<input type="checkbox" class="soldout-check"' + (soldOut.has(item.name) ? " checked" : "") +
-        ' onchange="toggleSoldOut(\'' + item.name.replace(/'/g, "\\'") + '\',this.checked)">' +
+        ' onchange="' + escAttr(call) + '">' +
         "</div>";
     }).join("");
     const td = document.getElementById("toggle-delivery");
