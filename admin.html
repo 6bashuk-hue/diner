@@ -182,6 +182,8 @@ body {
 
 .card-phone { font-size: 0.85rem; color: var(--muted); margin-bottom: 0.6rem; }
 .card-address { font-size: 0.82rem; color: #60a5fa; margin-bottom: 0.5rem; }
+.card-zone { font-size: 0.82rem; color: #60a5fa; font-weight: 700; margin-bottom: 0.2rem; }
+.card-courier-notes { font-size: 0.85rem; color: var(--warning); font-weight: 700; margin-bottom: 0.5rem; }
 
 .card-items { margin-bottom: 0.8rem; }
 .card-item {
@@ -990,7 +992,9 @@ function buildCard(key, o, status) {
             <div>
                 <div class="card-name">${escapeHtml(o.name || 'לא ידוע')}</div>
                 <div class="card-phone">📞 ${escapeHtml(o.phone || '')}</div>
+                ${isDelivery && o.deliveryZone && o.deliveryZone.label ? `<div class="card-zone">🗺️ ${escapeHtml(o.deliveryZone.label)}</div>` : ''}
                 ${isDelivery && o.address ? `<div class="card-address">📍 ${escapeHtml(o.address)}</div>` : ''}
+                ${o.courierNotes ? `<div class="card-courier-notes">🛵 הערה לשליח: ${escapeHtml(o.courierNotes)}</div>` : ''}
             </div>
             <div class="card-badges">
                 <span class="badge ${isDelivery ? 'badge-delivery' : 'badge-pickup'}">${escapeHtml(o.type || 'איסוף')}</span>
@@ -1173,8 +1177,10 @@ function buildReceiptHtml(o) {
         '<div class="r-bold">' + escapeHtml(o.name || '') + '</div>' +
         '<div>📞 ' + escapeHtml(o.phone || '') + '</div>' +
         '<div>' + escapeHtml(o.type || '') + '</div>' +
+        (o.type === 'משלוח' && o.deliveryZone && o.deliveryZone.label ? '<div class="r-bold">🗺️ ' + escapeHtml(o.deliveryZone.label) + '</div>' : '') +
         (o.type === 'משלוח' && o.address ? '<div>📍 ' + escapeHtml(o.address) + '</div>' : '') +
         '<div class="r-bold">' + (o.payment === 'cash' ? '💵 תשלום: מזומן' : '💳 תשלום: אשראי טלפוני') + '</div>' +
+        (o.courierNotes ? '<div class="r-bold">🛵 הערה לשליח: ' + escapeHtml(o.courierNotes) + '</div>' : '') +
         '<div class="r-hr"></div>' +
         itemsHtml +
         '<div class="r-hr"></div>' +
@@ -1344,8 +1350,10 @@ async function printOrder(key) {
     right(o.name || "", 32, true);
     right("טלפון: " + (o.phone || ""), 24, false);
     right("סוג: " + (o.type || ""), 24, false);
+    if (o.type === "משלוח" && o.deliveryZone && o.deliveryZone.label) right("אזור: " + o.deliveryZone.label, 26, true);
     if (o.type === "משלוח" && o.address) right("כתובת: " + o.address, 24, false);
     right("תשלום: " + (o.payment === "cash" ? "מזומן" : "אשראי טלפוני"), 26, true);
+    if (o.courierNotes) right("🛵 הערה לשליח: " + o.courierNotes, 24, true);
     hr();
     (o.items || []).forEach(i => {
       rowRL(i.name || "", ((Number(i.basePrice) || 0)) + " ₪", 27, true);

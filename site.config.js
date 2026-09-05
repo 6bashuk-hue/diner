@@ -35,7 +35,18 @@
     commerce: {
       deliveryFee: 20,
       minDelivery: 60,
-      currency: "₪"
+      currency: "₪",
+      // Delivery zones — each order/group-order picks one when "משלוח" is chosen.
+      // `requiresAddress: true` means the customer must fill a street address
+      // (today: only the in-town Arad zone); the base deliveries just need the
+      // zone itself, no address field. Keep `key` stable — it's stored on orders.
+      deliveryZones: [
+        { key: "arad",           label: "ערד",              fee: 20,  requiresAddress: true },
+        { key: "base_nachaltov", label: "בא\"ח נחל טוב",     fee: 100, requiresAddress: false },
+        { key: "base_kriyot",    label: "בא\"ח נחל קריות",   fee: 100, requiresAddress: false },
+        { key: "nevatim_north",  label: "נבטים צפוני",       fee: 100, requiresAddress: false },
+        { key: "nevatim_south",  label: "נבטים דרומי",       fee: 110, requiresAddress: false }
+      ]
     },
     theme: {
       primary: "#d21f24",

@@ -1013,8 +1013,12 @@
                 <label>איך תרצו לקבל את ההזמנה?</label>
                 <select id="delivery-type" onchange="onDeliveryChange()">
                     <option value="pickup">🚶 איסוף עצמי</option>
-                    <option value="delivery">🛵 משלוח (+20 ₪)</option>
+                    <option value="delivery">🛵 משלוח</option>
                 </select>
+                <div id="zone-wrap" style="display:none;">
+                    <label>אזור משלוח *</label>
+                    <select id="f-zone" onchange="onZoneChange()"></select>
+                </div>
                 <label>שם מלא *</label>
                 <input type="text" id="f-name" placeholder="ישראל ישראלי" autocomplete="name">
                 <label>מספר טלפון *</label>
@@ -1022,6 +1026,10 @@
                 <div id="address-wrap" style="display:none;">
                     <label>כתובת מלאה *</label>
                     <input type="text" id="f-address" placeholder="רחוב, מספר בית, קומה/דירה" autocomplete="street-address">
+                </div>
+                <div id="courier-notes-wrap" style="display:none;">
+                    <label>הערות לשליח (אופציונלי)</label>
+                    <textarea class="notes-input" id="f-courier-notes" placeholder="קומה, קוד לשער, נקודת ציון בבסיס..." style="margin-top:0;"></textarea>
                 </div>
                 <label>אמצעי תשלום *</label>
                 <select id="f-payment" onchange="onPaymentChange()">
@@ -1106,6 +1114,9 @@
 const FB_URL        = SITE_CONFIG.firebase.dbUrl;
 const DELIVERY_FEE  = SITE_CONFIG.commerce.deliveryFee;
 const MIN_DELIVERY  = SITE_CONFIG.commerce.minDelivery;
+// Delivery zones — ערד (needs a street address) + the surrounding bases (no address,
+// just the zone itself). See site.config.js commerce.deliveryZones for the source data.
+const DELIVERY_ZONES = SITE_CONFIG.commerce.deliveryZones || [];
 
 // Fill in every on-page text node that shows the business name/city/phone/hours,
 // so editing site.config.js is the only thing a new deployment needs to do here.
@@ -1127,6 +1138,14 @@ const MIN_DELIVERY  = SITE_CONFIG.commerce.minDelivery;
     if (logoImg) logoImg.alt = "לוגו " + b.name;
     const phoneLink = document.getElementById("footer-phone-link");
     if (phoneLink) { phoneLink.href = "tel:" + b.phone; phoneLink.textContent = b.phoneDisplay; }
+
+    // Delivery-zone <select> — one option per SITE_CONFIG.commerce.deliveryZones entry.
+    const zoneSel = document.getElementById("f-zone");
+    if (zoneSel) {
+        zoneSel.innerHTML = (SITE_CONFIG.commerce.deliveryZones || [])
+            .map(z => '<option value="' + z.key + '">' + z.label + ' (+' + z.fee + ' ' + SITE_CONFIG.commerce.currency + ')</option>')
+            .join("");
+    }
 })();
 // Optional integrations — leave empty to disable each silently.
 const GOOGLE_MAPS_API_KEY = "";   // get from console.cloud.google.com → enable Places API → restrict to your domain
@@ -1163,7 +1182,7 @@ async function loadExtrasFromFirebase() {
 const DEFAULT_MENU = {
     burgers: [
         {name:"סמאש בורגר",      desc:"רוטב הבית, חסה לליק, מלפפון חמוץ, עגבנייה, בצל סגול",                          price:40, extras:true},
-        {name:"ביג גוי סמאש",    desc:"רוטב הבית, סמאש כפול, סגולים מוחמצים, חסה לליק, עגבנייה צרובה ושום קונפי",     price:69, extras:true},
+        {name:"ביג בוי סמאש",    desc:"רוטב הבית, סמאש כפול, סגולים מוחמצים, חסה לליק, עגבנייה צרובה ושום קונפי",     price:69, extras:true},
         {name:"פפר סמאש 🌶️",     desc:"סמאש כפול, רוטב הבית, חסה לליק, עגבנייה, בצל סגול, חמוצים וריבת פלפלים",       price:69, extras:true},
         {name:"אוקלהומה סמאש",   desc:"סמאש כפול צרוב עם בצל חי, רוטב הבית, חמוצים, חסה לליק",                        price:69, extras:true}
     ],
@@ -2018,6 +2037,17 @@ function isDelivery() {
     return el && el.value === "delivery";
 }
 
+// The currently-selected delivery zone (ערד or one of the surrounding bases).
+// Falls back to the first configured zone so callers always get a usable object.
+function selectedZone() {
+    const sel = document.getElementById("f-zone");
+    const key = sel ? sel.value : "";
+    return DELIVERY_ZONES.find(z => z.key === key) || DELIVERY_ZONES[0] || { key: "", label: "", fee: DELIVERY_FEE, requiresAddress: true };
+}
+function currentDeliveryFee() {
+    return isDelivery() ? selectedZone().fee : 0;
+}
+
 function calcDiscount(itemsTotal) {
     if (!coupon) return 0;
     if (coupon.type === "percent") return Math.round(itemsTotal * coupon.value / 100);
@@ -2108,7 +2138,7 @@ function updateCart() {
     }).join("");
 
     const itemsTotal = cart.reduce((s, i) => s + i.total, 0);
-    const fee        = isDelivery() ? DELIVERY_FEE : 0;
+    const fee        = currentDeliveryFee();
     const disc       = calcDiscount(itemsTotal);
     const finalTotal = Math.max(0, itemsTotal + fee - disc);
 
@@ -2229,8 +2259,23 @@ function onPaymentChange() {
 
 function onDeliveryChange() {
     const del = isDelivery();
-    document.getElementById("address-wrap").style.display = del ? "block" : "none";
-    document.getElementById("f-address").required = del;
+    document.getElementById("zone-wrap").style.display = del ? "block" : "none";
+    document.getElementById("courier-notes-wrap").style.display = del ? "block" : "none";
+    if (del) onZoneChange(); else {
+        document.getElementById("address-wrap").style.display = "none";
+        document.getElementById("f-address").required = false;
+        updateCart();
+    }
+}
+
+function onZoneChange() {
+    const del = isDelivery();
+    const zone = selectedZone();
+    const needsAddress = del && zone.requiresAddress;
+    document.getElementById("address-wrap").style.display = needsAddress ? "block" : "none";
+    document.getElementById("f-address").required = needsAddress;
+    document.getElementById("delivery-fee-city").textContent = del ? zone.label : "";
+    document.getElementById("delivery-fee-amount").textContent = currentDeliveryFee() + " " + SITE_CONFIG.commerce.currency;
     updateCart();
 }
 
@@ -2255,7 +2300,9 @@ async function submitOrder() {
     const name    = document.getElementById("f-name").value.trim();
     const phone   = document.getElementById("f-phone").value.trim();
     const type    = isDelivery() ? "משלוח" : "איסוף עצמי";
+    const zone    = isDelivery() ? selectedZone() : null;
     const address = document.getElementById("f-address").value.trim();
+    const courierNotes = document.getElementById("f-courier-notes").value.trim();
     const payEl   = document.getElementById("f-payment");
     const payment = payEl ? payEl.value : "credit"; // "credit" | "cash"
     const paymentLabel = payment === "cash" ? "💵 מזומן" : "💳 אשראי טלפוני";
@@ -2265,7 +2312,7 @@ async function submitOrder() {
     let ok = true;
     if (!name)               { document.getElementById("f-name").classList.add("error");    ok = false; }
     if (!validPhone(phone))  { document.getElementById("f-phone").classList.add("error");   ok = false; }
-    if (type === "משלוח" && !address) { document.getElementById("f-address").classList.add("error"); ok = false; }
+    if (type === "משלוח" && zone && zone.requiresAddress && !address) { document.getElementById("f-address").classList.add("error"); ok = false; }
     if (!ok) { toast("⚠️ נא למלא את כל השדות בצורה תקינה"); return; }
     if (!cart.length) { toast("⚠️ העגלה ריקה!"); return; }
 
@@ -2297,6 +2344,7 @@ async function submitOrder() {
             method: "POST", headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
                 name, phone, type, address, payment,
+                deliveryZone: zone ? zone.key : null, courierNotes,
                 couponCode: coupon ? coupon.code : null,
                 items: cart.map(i => ({ name: i.name, extras: i.extras, notes: i.notes, choice: i.choice || "" }))
             })
@@ -2305,7 +2353,7 @@ async function submitOrder() {
             const data = await res.json();
             const total = (data && data.total != null)
                 ? data.total
-                : Math.max(0, itemsTotal + (isDelivery() ? DELIVERY_FEE : 0) - calcDiscount(itemsTotal));
+                : Math.max(0, itemsTotal + (currentDeliveryFee()) - calcDiscount(itemsTotal));
             saveCustomer(name, phone, address);
             saveLastOrder(cart);
             // REF- referrals are still processed by their own function (works post-lock).
@@ -2336,7 +2384,7 @@ async function submitOrder() {
     }
 
     // ── Legacy fallback (client write) — only reached if place-order is unavailable ──
-    const fee   = isDelivery() ? DELIVERY_FEE : 0;
+    const fee   = currentDeliveryFee();
     const disc  = calcDiscount(itemsTotal);
     const total = Math.max(0, itemsTotal + fee - disc);
 
@@ -2351,7 +2399,12 @@ async function submitOrder() {
     let msg = "🍔 *הזמנה חדשה -- " + SITE_CONFIG.business.name + "*\n━━━━━━━━━━━━━━━━━\n";
     msg += "👤 *שם:* " + name + "\n📞 *טלפון:* " + phone + "\n🚲 *סוג:* " + type + "\n";
     msg += "💰 *תשלום:* " + paymentLabel + (payment === "credit" ? " — ⚠️ להתקשר" : "") + "\n";
-    if (type === "משלוח") msg += "📍 *כתובת:* " + address + "\n💵 דמי משלוח: " + fee + " ₪\n";
+    if (type === "משלוח" && zone) {
+        msg += "🗺️ *אזור משלוח:* " + zone.label + "\n";
+        if (address) msg += "📍 *כתובת:* " + address + "\n";
+        msg += "💵 דמי משלוח: " + fee + " ₪\n";
+    }
+    if (courierNotes) msg += "🛵 *הערה לשליח:* " + courierNotes + "\n";
     if (disc > 0 && coupon) msg += "🎟 *קופון " + coupon.code + ":* -" + disc + " ₪\n";
     msg += "━━━━━━━━━━━━━━━━━\n📦 *פירוט:*\n" + itemsText + "\n━━━━━━━━━━━━━━━━━\n💰 *סה\"כ: " + total + " ₪*";
 
@@ -2378,6 +2431,8 @@ async function submitOrder() {
         const pushRes = await fbPush("orders", {
             name, phone, type,
             address: type === "משלוח" ? address : null,
+            deliveryZone: type === "משלוח" && zone ? { key: zone.key, label: zone.label, fee: zone.fee } : null,
+            courierNotes: courierNotes || null,
             payment, paymentLabel,
             items: orderItems, couponCode: coupon ? coupon.code : null, discount: disc, total,
             thresholdReward,
