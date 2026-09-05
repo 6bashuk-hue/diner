@@ -197,6 +197,9 @@ const FB_URL = SITE_CONFIG.firebase.dbUrl;
 async function fbGet(p) { try { const r = await fetch(FB_URL + p + ".json"); return r.ok ? r.json() : null; } catch { return null; } }
 document.getElementById("group-brand-name").textContent = SITE_CONFIG.business.name;
 function showMsg(elId, text, ok) { const e = document.getElementById(elId); if (e) e.innerHTML = '<div class="msg ' + (ok ? "ok" : "err") + '">' + text + '</div>'; }
+// Appends the server's raw error detail (e.g. "fbSet failed (401) for groupOrders/...")
+// when present, so a real backend failure is visible instead of just a generic message.
+function errText(data) { const base = data && (data.message || data.error) || "שגיאה"; return (data && data.detail) ? base + " — " + data.detail : base; }
 function normalizePhone(p) { return String(p || "").replace(/\D/g, "").replace(/^972/, "0"); }
 function validPhone(p) { return /^05\d{8}$/.test(normalizePhone(p)); }
 function toast(msg) { const t = document.getElementById("toast"); t.textContent = msg; t.classList.add("show"); setTimeout(() => t.classList.remove("show"), 2000); }
@@ -596,7 +599,7 @@ async function createGroup() {
       body: JSON.stringify({ managerPhone: phone, managerName: name })
     });
     const data = await r.json();
-    if (!r.ok) { showMsg("create-msg", data.error || "שגיאה", false); btn.disabled = false; btn.textContent = "פתח קבוצה"; return; }
+    if (!r.ok) { showMsg("create-msg", errText(data), false); btn.disabled = false; btn.textContent = "פתח קבוצה"; return; }
     location.href = "/group.html?id=" + data.groupId + "&mphone=" + encodeURIComponent(phone);
   } catch { showMsg("create-msg", "שגיאת רשת", false); btn.disabled = false; btn.textContent = "פתח קבוצה"; }
 }
@@ -621,7 +624,7 @@ async function saveMyCart() {
       body: JSON.stringify({ groupId: currentGroup.groupId, phone: myPhone, name: myName, items: myCart })
     });
     const data = await r.json();
-    if (!r.ok) { showMsg("save-msg", data.error || "שגיאה", false); return; }
+    if (!r.ok) { showMsg("save-msg", errText(data), false); return; }
     showMsg("save-msg", "✅ נשמר!", true);
     await refreshGroup();
   } catch { showMsg("save-msg", "שגיאת רשת", false); }
@@ -702,7 +705,7 @@ async function submitGroup() {
       })
     });
     const data = await r.json();
-    if (!r.ok) { showMsg("submit-msg", data.message || data.error || "שגיאה", false); btn.disabled = false; btn.textContent = "🍔 שלח את כל ההזמנה"; return; }
+    if (!r.ok) { showMsg("submit-msg", errText(data), false); btn.disabled = false; btn.textContent = "🍔 שלח את כל ההזמנה"; return; }
     showMsg("submit-msg", "✅ נשלח! סה\"כ ₪" + data.total + ". אנחנו נתקשר לאישור.", true);
     await refreshGroup();
   } catch { showMsg("submit-msg", "שגיאת רשת", false); btn.disabled = false; btn.textContent = "🍔 שלח את כל ההזמנה"; }
