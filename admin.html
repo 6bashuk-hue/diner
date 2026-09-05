@@ -1729,22 +1729,38 @@ async function printOrder(key) {
     return items;
   }
 
+  // "עוד מהשכונה" dishes (SITE_CONFIG.guestMenus) share this SAME admin_state.soldOut
+  // list — marking one here hides/blocks it in the guest-menus section on the live
+  // site, using the exact item name place-order.js already re-prices against.
+  function collectGuestItems() {
+    const items = [];
+    (SITE_CONFIG.guestMenus || []).forEach(src => {
+      (src.sections || []).forEach(sec => {
+        (sec.items || []).forEach(it => {
+          if (it && it.name) items.push({ name: it.name, _guestLabel: src.name });
+        });
+      });
+    });
+    return items;
+  }
+
   function availItemHTML(item) {
     const name = item.name;
     const checked = availSoldOut.has(name);
+    const label = item._guestLabel ? "🏪 " + item._guestLabel + " — " + name : name;
     // JSON.stringify gives a safe JS string literal (handles embedded quotes/backslashes);
     // escapeHtml then escapes that literal for the surrounding HTML attribute — a name
     // containing a literal " (e.g. an abbreviation like תפו"א) would otherwise truncate
     // the onchange="..." attribute and silently break the checkbox.
     const call = "toggleAvailability(" + JSON.stringify(name) + ", this.checked)";
-    return '<div class="availability-item"><span>' + escapeHtml(name) + '</span>' +
+    return '<div class="availability-item"><span>' + escapeHtml(label) + '</span>' +
       '<input type="checkbox" class="availability-check"' + (checked ? " checked" : "") +
       ' onchange="' + escapeHtml(call) + '"></div>';
   }
 
   function renderAvailabilityList(menu) {
     const list = document.getElementById("availability-list");
-    const items = collectMenuItems(menu);
+    const items = collectMenuItems(menu).concat(collectGuestItems());
     list.innerHTML = items.length
       ? '<div class="availability-grid">' + items.map(availItemHTML).join("") + '</div>'
       : '<p style="color:var(--muted)">לא נמצא תפריט</p>';
