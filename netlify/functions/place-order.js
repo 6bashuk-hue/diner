@@ -15,8 +15,11 @@
 
 const { fbGet, fbSet, fbPush } = require("../../marketing/lib/fb");
 const SITE_CONFIG = require("../../site.config.js");
+const {
+  PricingError, flattenPrices, flattenGuestPrices, flattenGuestExtraPrices,
+  priceCart, findDeliveryZone
+} = require("./lib/pricing");
 
-const DELIVERY_FEE = 20;
 const MIN_DELIVERY = 60;
 const LOYALTY_GOAL = 10;
 const LOYALTY_REWARD = 30;
@@ -59,62 +62,6 @@ function computeTier(totalOrders, totalRevenue) {
   return "new";
 }
 
-// Build {name -> price} maps from the authoritative menu/extras nodes.
-function flattenPrices(node) {
-  const map = new Map();
-  if (!node || typeof node !== "object") return map;
-  const addItem = (it) => {
-    if (it && it.name != null && Number.isFinite(Number(it.price))) map.set(String(it.name), Number(it.price));
-  };
-  for (const section of Object.values(node)) {
-    if (Array.isArray(section)) {
-      section.forEach(addItem);
-    } else if (section && typeof section === "object") {
-      // A section is normally a list of items, but special entries (chefSpecial /
-      // coupleMeal) are stored as a single priced item object — handle both.
-      if (section.name != null && Number.isFinite(Number(section.price))) addItem(section);
-      else Object.values(section).forEach(addItem);
-    }
-  }
-  return map;
-}
-
-// Build {name -> {price, source}} from SITE_CONFIG.guestMenus (dishes from neighboring
-// businesses a customer can add to their own order). This — not the client — is the
-// only trusted price source for those items, same treatment as flattenPrices(menu).
-function flattenGuestPrices(guestMenus) {
-  const map = new Map();
-  (Array.isArray(guestMenus) ? guestMenus : []).forEach(src => {
-    (Array.isArray(src.sections) ? src.sections : []).forEach(sec => {
-      (Array.isArray(sec.items) ? sec.items : []).forEach(it => {
-        if (it && it.name != null && Number.isFinite(Number(it.price))) {
-          map.set(String(it.name), { price: Number(it.price), source: src.name });
-        }
-      });
-    });
-  });
-  return map;
-}
-
-// Build {name -> price} from each guest section's extraGroups (e.g. 6 בשוק's pizza
-// toppings) — same trusted-source treatment as flattenPrices(siteSettings/extras) for
-// the diner's own extras. Topping names that collide with the diner's own extras pool
-// are deliberately disambiguated in site.config.js (a "(פיצה)" suffix) so this map and
-// extraPrices never need a priority order between them.
-function flattenGuestExtraPrices(guestMenus) {
-  const map = new Map();
-  (Array.isArray(guestMenus) ? guestMenus : []).forEach(src => {
-    (Array.isArray(src.sections) ? src.sections : []).forEach(sec => {
-      (Array.isArray(sec.extraGroups) ? sec.extraGroups : []).forEach(g => {
-        (Array.isArray(g.items) ? g.items : []).forEach(name => {
-          if (name != null && Number.isFinite(Number(g.price))) map.set(String(name), Number(g.price));
-        });
-      });
-    });
-  });
-  return map;
-}
-
 async function sendTelegram(message) {
   const { TG_TOKEN, TG_CHAT } = process.env;
   if (!TG_TOKEN || !TG_CHAT) return;
@@ -144,13 +91,23 @@ exports.handler = async (event) => {
   const phone = normalizePhone(body.phone);
   const type = body.type === "משלוח" ? "משלוח" : "איסוף עצמי";
   const address = String(body.address || "").trim().slice(0, 200);
+  const courierNotes = String(body.courierNotes || "").trim().slice(0, 280);
   const payment = body.payment === "cash" ? "cash" : "credit";
   const couponCode = String(body.couponCode || "").trim().toUpperCase();
   const items = Array.isArray(body.items) ? body.items.slice(0, 60) : [];
 
+  // ── Delivery zone (only relevant for type === "משלוח") ──
+  let zone = null;
+  if (type === "משלוח") {
+    zone = findDeliveryZone(String(body.deliveryZone || ""));
+    if (!zone) return { statusCode: 400, body: JSON.stringify({ error: "נא לבחור אזור משלוח" }) };
+    if (zone.requiresAddress && !address) {
+      return { statusCode: 400, body: JSON.stringify({ error: "חסרה כתובת למשלוח" }) };
+    }
+  }
+
   if (!name) return { statusCode: 400, body: JSON.stringify({ error: "חסר שם" }) };
   if (!validPhone(phone)) return { statusCode: 400, body: JSON.stringify({ error: "מספר טלפון לא תקין" }) };
-  if (type === "משלוח" && !address) return { statusCode: 400, body: JSON.stringify({ error: "חסרה כתובת למשלוח" }) };
   if (!items.length) return { statusCode: 400, body: JSON.stringify({ error: "העגלה ריקה" }) };
   if (couponCode && !/^[A-Z0-9-]{3,40}$/.test(couponCode)) {
     return { statusCode: 400, body: JSON.stringify({ error: "קוד קופון לא תקין" }) };
@@ -170,59 +127,14 @@ exports.handler = async (event) => {
   // than rejecting every order (availability over strictness on infra failure).
   const menuLoaded = menuPrices.size > 0;
 
-  const orderItems = [];
-  let itemsTotal = 0;
-  // Same as itemsTotal but excludes dishes added from a neighboring business's guest
-  // menu — used only for the free-item threshold below, so ordering from 6 בשוק /
-  // אדלה בשוק doesn't help a customer reach it.
-  let ownItemsTotal = 0;
-  for (const raw of items) {
-    const itemName = String(raw && raw.name || "").slice(0, 120);
-    if (!itemName) continue;
-    if (soldOut.has(itemName)) {
-      return { statusCode: 409, body: JSON.stringify({ error: `הפריט "${itemName}" אזל מהמלאי` }) };
-    }
-    let basePrice;
-    let guestSource = null;
-    const guestItem = guestPrices.get(itemName);
-    if (menuLoaded && menuPrices.has(itemName)) {
-      basePrice = menuPrices.get(itemName);
-    } else if (guestItem) {
-      // Dish from a neighboring business (SITE_CONFIG.guestMenus) — same order, same
-      // kitchen ticket, priced from our own trusted config rather than the client.
-      basePrice = guestItem.price;
-      guestSource = guestItem.source;
-    } else if (menuLoaded) {
-      return { statusCode: 409, body: JSON.stringify({ error: `הפריט "${itemName}" כבר לא בתפריט — רענן את הדף` }) };
-    } else {
-      basePrice = Math.max(0, Number(raw.basePrice) || 0);
-    }
-
-    const extras = (Array.isArray(raw.extras) ? raw.extras : []).slice(0, 30).map(e => {
-      const en = String(e && e.name || "").slice(0, 80);
-      const qty = Math.max(1, Math.min(20, Math.floor(Number(e && e.qty) || 1)));
-      let price;
-      if (menuLoaded && extraPrices.has(en)) price = extraPrices.get(en);
-      else if (guestExtraPrices.has(en)) price = guestExtraPrices.get(en);
-      else price = Math.max(0, Number(e && e.price) || 0);
-      const choice = String(e && e.choice || "").slice(0, 40);
-      const entry = { name: en, qty, price };
-      if (choice) entry.choice = choice;
-      return entry;
-    }).filter(e => e.name);
-
-    const extrasSum = extras.reduce((s, e) => s + e.qty * e.price, 0);
-    const lineTotal = basePrice + extrasSum;
-    itemsTotal += lineTotal;
-    if (!guestSource) ownItemsTotal += lineTotal;
-    const choice = String(raw && raw.choice || "").slice(0, 80);
-    orderItems.push({
-      name: itemName, basePrice, extras,
-      choice: choice || null,
-      guestSource: guestSource || null,
-      notes: String(raw.notes || "").slice(0, 280),
-      total: lineTotal
-    });
+  let orderItems, itemsTotal, ownItemsTotal;
+  try {
+    ({ orderItems, itemsTotal, ownItemsTotal } = priceCart(items, {
+      menuPrices, extraPrices, guestPrices, guestExtraPrices, soldOut, menuLoaded
+    }));
+  } catch (e) {
+    if (e instanceof PricingError) return { statusCode: e.statusCode, body: JSON.stringify({ error: e.message }) };
+    throw e;
   }
   if (!orderItems.length) return { statusCode: 400, body: JSON.stringify({ error: "העגלה ריקה" }) };
 
@@ -259,7 +171,7 @@ exports.handler = async (event) => {
     };
   }
 
-  const fee = type === "משלוח" ? DELIVERY_FEE : 0;
+  const fee = type === "משלוח" ? zone.fee : 0;
   const total = Math.max(0, itemsTotal + fee - discount);
   const paymentLabel = payment === "cash" ? "💵 מזומן" : "💳 אשראי טלפוני";
   const now = Date.now();
@@ -268,6 +180,8 @@ exports.handler = async (event) => {
   const orderKey = await fbPush("orders", {
     name, phone, type,
     address: type === "משלוח" ? address : null,
+    deliveryZone: type === "משלוח" ? { key: zone.key, label: zone.label, fee: zone.fee } : null,
+    courierNotes: courierNotes || null,
     payment, paymentLabel,
     items: orderItems,
     couponCode: couponCode || null,
@@ -325,7 +239,12 @@ exports.handler = async (event) => {
   let msg = "🍔 *הזמנה חדשה -- " + SITE_CONFIG.business.name + "*\n━━━━━━━━━━━━━━━━━\n";
   msg += "👤 *שם:* " + name + "\n📞 *טלפון:* " + phone + "\n🚲 *סוג:* " + type + "\n";
   msg += "💰 *תשלום:* " + paymentLabel + (payment === "credit" ? " — ⚠️ להתקשר" : "") + "\n";
-  if (type === "משלוח") msg += "📍 *כתובת:* " + address + "\n💵 דמי משלוח: " + fee + " ₪\n";
+  if (type === "משלוח") {
+    msg += "🗺️ *אזור משלוח:* " + zone.label + "\n";
+    if (address) msg += "📍 *כתובת:* " + address + "\n";
+    msg += "💵 דמי משלוח: " + fee + " ₪\n";
+  }
+  if (courierNotes) msg += "🛵 *הערה לשליח:* " + courierNotes + "\n";
   if (discount > 0 && couponCode) msg += "🎟 *קופון " + couponCode + ":* -" + discount + " ₪\n";
   if (rewardedThreshold) msg += "🎁 *" + ((thresholdCfg.rewardItem || DEFAULT_THRESHOLD.rewardItem).name) + " — חינם (Threshold)*\n";
   msg += "━━━━━━━━━━━━━━━━━\n📦 *פירוט:*\n" + itemsText + "\n━━━━━━━━━━━━━━━━━\n💰 *סה\"כ: " + total + " ₪*";

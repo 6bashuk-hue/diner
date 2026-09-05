@@ -2,9 +2,18 @@
 // Public POST. Upserts a participant's items in a group order and recomputes the
 // group's totalAmount. Used as both "join" and "update my cart".
 //
+// Every line is re-priced against the live menu/extras/guest config (same trusted
+// source place-order.js uses for solo orders) — a participant can no longer deflate
+// the group total by POSTing a fake `total`, and guest ("עוד מהשכונה") dishes are
+// priced the same way here as in a solo order.
+//
 // Required env: FB_URL
 
 const { fbGet, fbPatch, fbSet } = require("../../marketing/lib/fb");
+const SITE_CONFIG = require("../../site.config.js");
+const {
+  PricingError, flattenPrices, flattenGuestPrices, flattenGuestExtraPrices, priceCart
+} = require("./lib/pricing");
 
 function normalizePhone(p) { return String(p || "").replace(/\D/g, "").replace(/^972/, "0"); }
 
@@ -35,18 +44,28 @@ async function handler(event) {
     return { statusCode: 410, body: JSON.stringify({ error: "Group expired" }) };
   }
 
-  // Items shape: [{ name, basePrice, extras:[{name,qty,price}], notes, total }]
-  // Fallback for older callers that send { price, qty }.
-  // Clamp each line to a non-negative, finite number so a participant can't POST a
-  // negative/NaN total to deflate the group total (full server-side re-pricing
-  // against the menu would be stronger — tracked as a follow-up).
-  const lineTotal = (i) => {
-    const t = Number.isFinite(i.total) ? Number(i.total) : (Number(i.price) || 0) * (Number(i.qty) || 1);
-    return Math.max(0, Number.isFinite(t) ? t : 0);
-  };
-  const subtotal = items.reduce((s, i) => s + lineTotal(i), 0);
+  // ── Re-price every line against the live menu (same trusted source as place-order.js) ──
+  const [menuNode, extrasNode, adminState] = await Promise.all([
+    fbGet("menu"), fbGet("siteSettings/extras"), fbGet("admin_state")
+  ]);
+  const menuPrices = flattenPrices(menuNode);
+  const extraPrices = flattenPrices(extrasNode);
+  const guestPrices = flattenGuestPrices(SITE_CONFIG.guestMenus);
+  const guestExtraPrices = flattenGuestExtraPrices(SITE_CONFIG.guestMenus);
+  const soldOut = new Set((adminState && Array.isArray(adminState.soldOut)) ? adminState.soldOut : []);
+  const menuLoaded = menuPrices.size > 0;
+
+  let orderItems;
+  try {
+    ({ orderItems } = priceCart(items, { menuPrices, extraPrices, guestPrices, guestExtraPrices, soldOut, menuLoaded }));
+  } catch (e) {
+    if (e instanceof PricingError) return { statusCode: e.statusCode, body: JSON.stringify({ error: e.message }) };
+    throw e;
+  }
+
+  const subtotal = orderItems.reduce((s, i) => s + i.total, 0);
   await fbSet("groupOrders/" + groupId + "/participants/" + phone, {
-    name, items, subtotal, updatedAt: Date.now(),
+    name, items: orderItems, subtotal, updatedAt: Date.now(),
     joinedAt: (group.participants && group.participants[phone] && group.participants[phone].joinedAt) || Date.now()
   });
 
@@ -54,7 +73,7 @@ async function handler(event) {
   const totalAmount = Object.values(fresh || {}).reduce((s, p) => s + (p.subtotal || 0), 0);
   await fbPatch("groupOrders/" + groupId, { totalAmount });
 
-  return { statusCode: 200, body: JSON.stringify({ success: true, totalAmount }) };
+  return { statusCode: 200, body: JSON.stringify({ success: true, totalAmount, items: orderItems, subtotal }) };
 }
 
 module.exports = { handler };

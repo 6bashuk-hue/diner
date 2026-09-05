@@ -145,14 +145,25 @@
     <div class="card" id="manager-submit" style="display:none;">
       <h2>📤 שליחה למטבח</h2>
       <label for="d-type">סוג</label>
-      <select id="d-type"><option>איסוף</option><option>משלוח</option></select>
-      <label for="d-addr">כתובת (למשלוח)</label>
-      <input id="d-addr">
+      <select id="d-type" onchange="onGroupDeliveryChange()"><option value="איסוף">איסוף</option><option value="משלוח">משלוח</option></select>
+      <div id="g-zone-wrap" style="display:none;">
+        <label for="d-zone">אזור משלוח</label>
+        <select id="d-zone" onchange="onGroupZoneChange()"></select>
+      </div>
+      <div id="g-addr-wrap" style="display:none;">
+        <label for="d-addr">כתובת מלאה</label>
+        <input id="d-addr">
+      </div>
+      <div id="g-fee-note" class="muted" style="display:none;margin-top:0.3rem;"></div>
       <label for="d-pay">תשלום</label>
       <select id="d-pay">
         <option value="cash">מזומן באיסוף/לשליח</option>
         <option value="credit">אשראי טלפוני</option>
       </select>
+      <div id="g-courier-notes-wrap" style="display:none;">
+        <label for="d-courier-notes">הערות לשליח (אופציונלי)</label>
+        <textarea id="d-courier-notes" placeholder="קומה, קוד לשער, נקודת ציון בבסיס..."></textarea>
+      </div>
       <div style="margin-top:0.8rem;"><button class="btn green" id="submit-btn">🍔 שלח את כל ההזמנה</button></div>
       <div id="submit-msg"></div>
     </div>
@@ -196,6 +207,20 @@ const EXTRAS_GROUPS = [
   { key: "meal",   label: "🍟 שדרוג לארוחה" },
   { key: "addons", label: "➕ תוספות" }
 ];
+// "עוד מהשכונה" — dishes from neighboring businesses (SITE_CONFIG.guestMenus), added
+// to the same participant cart/order as the diner's own menu. Mirrors index.html.
+const GUEST_MENUS = (SITE_CONFIG.guestMenus || []);
+// A guest section's shared topping pool (e.g. 6 בשוק's pizza extraGroups) flattened
+// into one plain {name,price} list — same shape openModal() already expects from a
+// menu item's own custom `extras` array.
+function flattenExtraGroups(extraGroups) {
+  const out = [];
+  (extraGroups || []).forEach(g => (g.items || []).forEach(name => out.push({ name, price: g.price })));
+  return out;
+}
+// Delivery zones — ערד (needs a street address) + the surrounding bases (no address).
+const DELIVERY_ZONES = (SITE_CONFIG.commerce.deliveryZones || []);
+function findZone(key) { return DELIVERY_ZONES.find(z => z.key === key) || null; }
 // Soft drinks offered free with the meal-upgrade extra (no beer — that's paid separately).
 const MEAL_DRINK_OPTIONS = ["קולה", "קולה זירו", "ספרייט", "ספרייט זירו"];
 let modalMealDrink = {};
@@ -252,6 +277,21 @@ async function loadMenu() {
   }
   ITEM_IDX = [];
   SECTION_ORDER.forEach(sec => (MENU[sec] || []).forEach(it => ITEM_IDX.push({ ...it, section: sec })));
+  // Append "עוד מהשכונה" guest dishes to the SAME index, tagged with guestSource —
+  // openModal()/confirmAdd() need no special-casing, they just carry that field through.
+  GUEST_MENUS.forEach(src => {
+    (src.sections || []).forEach(sec => {
+      const groupExtras = Array.isArray(sec.extraGroups) && sec.extraGroups.length ? flattenExtraGroups(sec.extraGroups) : null;
+      (sec.items || []).forEach(it => {
+        if (!it || !it.name || !it.price) return;
+        ITEM_IDX.push({
+          name: it.name, desc: it.desc || "", price: it.price,
+          extras: Array.isArray(it.extras) ? it.extras : (groupExtras || undefined),
+          guestSource: src.name
+        });
+      });
+    });
+  });
 }
 
 function renderMenu() {
@@ -278,6 +318,45 @@ function renderMenu() {
       grid.appendChild(card);
     });
     host.appendChild(grid);
+  });
+
+  // "עוד מהשכונה" — same cards, appended after the diner's own menu.
+  if (GUEST_MENUS.length) {
+    const header = document.createElement("div");
+    header.className = "section-title";
+    header.textContent = "🏪 עוד מהשכונה";
+    host.appendChild(header);
+    const intro = document.createElement("p");
+    intro.className = "muted";
+    intro.style.margin = "0 0 0.6rem";
+    intro.textContent = "אפשר להוסיף גם מנה מהשכנים בשוק — הכל מגיע יחד באותה הזמנה.";
+    host.appendChild(intro);
+  }
+  GUEST_MENUS.forEach(src => {
+    (src.sections || []).forEach(sec => {
+      const items = (sec.items || []).filter(i => i && i.name && i.price);
+      if (!items.length) return;
+      const title = document.createElement("div");
+      title.className = "section-title";
+      title.style.fontSize = "0.95rem";
+      title.textContent = src.name + " · " + sec.label;
+      host.appendChild(title);
+      const grid = document.createElement("div");
+      grid.className = "menu-grid";
+      items.forEach(it => {
+        const globalIdx = ITEM_IDX.findIndex(x => x.name === it.name && x.guestSource === src.name);
+        const sold = soldOutSet.has(it.name);
+        const card = document.createElement("div");
+        card.className = "menu-item" + (sold ? " sold-out" : "");
+        card.innerHTML = '<div class="name">' + escapeHtml(it.name) + (sold ? " (אזל)" : "") + '</div>' +
+                         (it.desc ? '<div class="desc">' + escapeHtml(it.desc) + '</div>' : '<div class="desc">&nbsp;</div>') +
+                         '<div class="price">₪' + it.price + '</div>' +
+                         (sold ? '' : '<button class="add-mini">הוסף +</button>');
+        if (!sold) card.addEventListener("click", () => openModal(globalIdx));
+        grid.appendChild(card);
+      });
+      host.appendChild(grid);
+    });
   });
 }
 
@@ -475,7 +554,9 @@ function confirmAdd() {
   const notes = document.getElementById("modal-notes").value.trim();
   const unit = modalUnitPrice();
   for (let i = 0; i < modalQty; i++) {
-    myCart.push({ name: modalItem.name, basePrice: modalItem.price, extras: sel, notes, total: unit });
+    const entry = { name: modalItem.name, basePrice: modalItem.price, extras: sel, notes, total: unit };
+    if (modalItem.guestSource) entry.guestSource = modalItem.guestSource;
+    myCart.push(entry);
   }
   closeModal(); renderMyCart();
   toast("✔ נוסף לסל");
@@ -488,6 +569,7 @@ function renderMyCart() {
     const extText = (it.extras || []).map(e => e.name + (e.qty > 1 ? " ×" + e.qty : "") + (e.choice ? " (" + e.choice + ")" : "")).join(", ");
     const d = document.createElement("div"); d.className = "my-cart-item";
     d.innerHTML = '<div><strong>' + escapeHtml(it.name) + '</strong>' +
+                  (it.guestSource ? '<div class="extras">🏪 מ-' + escapeHtml(it.guestSource) + '</div>' : '') +
                   (extText ? '<div class="extras">+ ' + escapeHtml(extText) + '</div>' : '') +
                   (it.notes ? '<div class="extras">📝 ' + escapeHtml(it.notes) + '</div>' : '') +
                   '</div>' +
@@ -559,7 +641,8 @@ async function refreshGroup() {
     const d = document.createElement("div"); d.className = "participant";
     const itemsHtml = (p.items || []).map(i => {
       const ext = (i.extras || []).map(e => e.name + (e.qty > 1 ? " ×" + e.qty : "") + (e.choice ? " (" + e.choice + ")" : "")).join(", ");
-      return '<li>' + escapeHtml(i.name) + (ext ? " + " + escapeHtml(ext) : "") + ' (₪' + i.total + ')</li>';
+      const guest = i.guestSource ? " 🏪" + escapeHtml(i.guestSource) : "";
+      return '<li>' + escapeHtml(i.name) + guest + (ext ? " + " + escapeHtml(ext) : "") + ' (₪' + i.total + ')</li>';
     }).join("");
     d.innerHTML = '<strong>' + escapeHtml(p.name) + '</strong> — ₪' + (p.subtotal || 0) +
       (itemsHtml ? '<ul class="participant-items">' + itemsHtml + '</ul>' : ' <span class="muted">(טרם הוסיף)</span>');
@@ -575,16 +658,48 @@ async function refreshGroup() {
   }
 }
 
+// Populate the delivery-zone <select> once (static config, not menu-dependent).
+function populateZoneSelect() {
+  const sel = document.getElementById("d-zone");
+  if (!sel || !DELIVERY_ZONES.length) return;
+  sel.innerHTML = DELIVERY_ZONES.map(z => '<option value="' + z.key + '">' + escapeHtml(z.label) + ' (+' + z.fee + ' ₪)</option>').join("");
+}
+function onGroupDeliveryChange() {
+  const del = document.getElementById("d-type").value === "משלוח";
+  document.getElementById("g-zone-wrap").style.display = del ? "block" : "none";
+  document.getElementById("g-courier-notes-wrap").style.display = del ? "block" : "none";
+  if (del) onGroupZoneChange();
+  else {
+    document.getElementById("g-addr-wrap").style.display = "none";
+    document.getElementById("g-fee-note").style.display = "none";
+  }
+}
+function onGroupZoneChange() {
+  const zone = findZone(document.getElementById("d-zone").value) || DELIVERY_ZONES[0];
+  if (!zone) return;
+  document.getElementById("g-addr-wrap").style.display = zone.requiresAddress ? "block" : "none";
+  const feeNote = document.getElementById("g-fee-note");
+  feeNote.style.display = "block";
+  feeNote.textContent = "🛵 " + zone.label + " — ייתווספו " + zone.fee + " ₪ דמי משלוח לסה\"כ";
+}
+
 async function submitGroup() {
   const type = document.getElementById("d-type").value;
+  const isDel = type === "משלוח";
+  const zone = isDel ? (findZone(document.getElementById("d-zone").value) || DELIVERY_ZONES[0]) : null;
   const address = document.getElementById("d-addr").value.trim();
   const payment = document.getElementById("d-pay").value;
-  if (type === "משלוח" && !address) { alert("מלא כתובת"); return; }
+  const courierNotes = document.getElementById("d-courier-notes").value.trim();
+  if (isDel && !zone) { alert("נא לבחור אזור משלוח"); return; }
+  if (isDel && zone.requiresAddress && !address) { alert("מלא כתובת"); return; }
   const btn = document.getElementById("submit-btn"); btn.disabled = true; btn.textContent = "שולח...";
   try {
     const r = await fetch("/.netlify/functions/submit-group-order", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ groupId: currentGroup.groupId, managerPhone: myPhone, delivery: { type, address, payment } })
+      body: JSON.stringify({
+        groupId: currentGroup.groupId, managerPhone: myPhone,
+        delivery: { type, address, payment, zone: zone ? zone.key : null, courierNotes }
+      })
     });
     const data = await r.json();
     if (!r.ok) { showMsg("submit-msg", data.message || data.error || "שגיאה", false); btn.disabled = false; btn.textContent = "🍔 שלח את כל ההזמנה"; return; }
@@ -626,6 +741,7 @@ async function init() {
     document.getElementById("manager-submit").style.display = "block";
     document.getElementById("p-name").value = group.managerName;
     document.getElementById("p-phone").value = group.managerPhone;
+    populateZoneSelect();
   }
 
   document.getElementById("join-btn").addEventListener("click", joinGroup);

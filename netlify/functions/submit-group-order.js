@@ -6,6 +6,7 @@
 // Required env: FB_URL, TG_TOKEN (optional), TG_CHAT (optional)
 
 const { fbGet, fbPush, fbPatch } = require("../../marketing/lib/fb");
+const { findDeliveryZone } = require("./lib/pricing");
 
 function normalizePhone(p) { return String(p || "").replace(/\D/g, "").replace(/^972/, "0"); }
 
@@ -84,10 +85,22 @@ async function handler(event) {
   const groupId = String(body.groupId || "");
   const managerPhone = normalizePhone(body.managerPhone);
   const delivery = body.delivery || {};
+  const courierNotes = String(delivery.courierNotes || "").trim().slice(0, 280);
   if (!groupId || !managerPhone) return { statusCode: 400, body: JSON.stringify({ error: "groupId, managerPhone required" }) };
   // groupId is a Firebase path segment — reject separators to prevent traversal.
   if (!/^[A-Za-z0-9_-]+$/.test(groupId)) {
     return { statusCode: 400, body: JSON.stringify({ error: "Invalid groupId" }) };
+  }
+
+  // ── Delivery zone (only relevant when delivery.type === "משלוח") ──
+  const wantsDeliveryType = (delivery.type || "") === "משלוח";
+  let zone = null;
+  if (wantsDeliveryType) {
+    zone = findDeliveryZone(String(delivery.zone || ""));
+    if (!zone) return { statusCode: 400, body: JSON.stringify({ error: "נא לבחור אזור משלוח" }) };
+    if (zone.requiresAddress && !String(delivery.address || "").trim()) {
+      return { statusCode: 400, body: JSON.stringify({ error: "חסרה כתובת למשלוח" }) };
+    }
   }
 
   const group = await fbGet("groupOrders/" + groupId);
@@ -101,15 +114,14 @@ async function handler(event) {
   const adminState = (await fbGet("admin_state")) || {};
   const pickupOn = adminState.pickupOn !== false;
   const deliveryOn = adminState.deliveryOn !== false;
-  const wantsDelivery = (delivery.type || "") === "משלוח";
   const effectivePickup = pickupOpen && pickupOn;
   const effectiveDelivery = deliveryOpen && deliveryOn;
-  if (wantsDelivery ? !effectiveDelivery : !effectivePickup) {
+  if (wantsDeliveryType ? !effectiveDelivery : !effectivePickup) {
     return {
       statusCode: 409,
       body: JSON.stringify({
         error: "closed",
-        message: "המסעדה סגורה כרגע ל" + (wantsDelivery ? "משלוחים" : "איסוף") +
+        message: "המסעדה סגורה כרגע ל" + (wantsDeliveryType ? "משלוחים" : "איסוף") +
           (hoursMsg ? " — " + hoursMsg : "") + ". נסה שוב כשנהיה פתוחים."
       })
     };
@@ -124,6 +136,8 @@ async function handler(event) {
       const total = Math.max(0, Number.isFinite(rawTotal) ? rawTotal : 0);
       allItems.push({
         name: i.name, basePrice,
+        choice: i.choice || null,
+        guestSource: i.guestSource || null,
         extras: Array.isArray(i.extras) ? i.extras : [],
         notes: i.notes || "",
         total,
@@ -133,13 +147,18 @@ async function handler(event) {
   });
   if (!allItems.length) return { statusCode: 400, body: JSON.stringify({ error: "Empty group order" }) };
 
-  const total = allItems.reduce((s, i) => s + i.total, 0);
+  const itemsTotal = allItems.reduce((s, i) => s + i.total, 0);
+  const fee = wantsDeliveryType ? zone.fee : 0;
+  const total = itemsTotal + fee;
   const now = Date.now();
+  const address = wantsDeliveryType ? String(delivery.address || "").trim().slice(0, 200) : "";
   const orderRecord = {
     name: group.managerName,
     phone: managerPhone,
     type: delivery.type || "איסוף",
-    address: delivery.address || null,
+    address: address || null,
+    deliveryZone: wantsDeliveryType ? { key: zone.key, label: zone.label, fee: zone.fee } : null,
+    courierNotes: courierNotes || null,
     payment: delivery.payment || "cash",
     paymentLabel: delivery.payment === "credit" ? "💳 אשראי טלפוני" : "💵 מזומן",
     items: allItems, couponCode: null, discount: 0, total,
@@ -156,8 +175,10 @@ async function handler(event) {
     "━━━━━━━━━━━━━━━━━\n" +
     "👤 *מנהל:* " + group.managerName + "\n📞 *טלפון:* " + managerPhone + "\n" +
     "🚲 *סוג:* " + (delivery.type || "איסוף") +
-    (delivery.address ? "\n📍 *כתובת:* " + delivery.address : "") + "\n" +
+    (wantsDeliveryType ? "\n🗺️ *אזור משלוח:* " + zone.label + " (💵 " + zone.fee + " ₪)" : "") +
+    (address ? "\n📍 *כתובת:* " + address : "") + "\n" +
     "💰 *תשלום:* " + (delivery.payment === "credit" ? "💳 אשראי טלפוני — ⚠️ להתקשר" : "💵 מזומן") + "\n" +
+    (courierNotes ? "🛵 *הערה לשליח:* " + courierNotes + "\n" : "") +
     "━━━━━━━━━━━━━━━━━\n📦 *פירוט לפי משתתף:*\n\n" + itemsText + "\n" +
     "━━━━━━━━━━━━━━━━━\n💰 *סה\"כ: " + total + " ₪*"
   );
