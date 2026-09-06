@@ -1027,7 +1027,7 @@ function buildCard(key, o, status) {
                 ${isDelivery ? `<div class="card-address">📍 ${escapeHtml(o.address || (o.deliveryZone && o.deliveryZone.label) || '')}</div>` : ''}
                 ${isDelivery && o.deliveryZone && o.deliveryZone.label ? `<div class="card-zone">🗺️ ${escapeHtml(o.deliveryZone.label)}${o.deliveryZone.fee ? ` · 🛵 ${o.deliveryZone.fee} ₪` : ''}</div>` : ''}
                 ${o.courierNotes ? `<div class="card-courier-notes">🛵 הערה לשליח: ${escapeHtml(o.courierNotes)}</div>` : ''}
-                ${isDelivery && o.delivery && o.delivery.status ? `<div class="card-delivery-status">${deliveryStatusLabel(o.delivery.status)}</div>` : ''}
+                ${isDelivery && o.delivery && o.delivery.status ? `<div class="card-delivery-status">${deliveryStatusLabel(o.delivery)}</div>` : ''}
             </div>
             <div class="card-badges">
                 <span class="badge ${isDelivery ? 'badge-delivery' : 'badge-pickup'}">${escapeHtml(o.type || 'איסוף')}</span>
@@ -1126,14 +1126,18 @@ async function doCreateTestOrder(type) {
 }
 
 // ─── DELIVERY BOT (Telegram courier) ───────────────────────────
-const DELIVERY_STATUS_LABELS = {
-    sent:             '🛵 נשלח לשליח — ממתין לאישור',
-    driver_accepted:  '✅ השליח קיבל את ההזמנה',
-    out_for_delivery: '🚗 השליח בדרך ללקוח',
-    delivered:        '✅ נמסר ללקוח'
-};
-function deliveryStatusLabel(status) {
-    return DELIVERY_STATUS_LABELS[status] || '';
+function deliveryStatusLabel(delivery) {
+    const status = delivery && delivery.status;
+    // courierName comes from the courier's Telegram profile (first/last name or
+    // username) — untrusted input, so it must be escaped before going into HTML.
+    const name = escapeHtml((delivery && delivery.courierName) || 'השליח');
+    const labels = {
+        sent:             '🛵 נשלח לשליח — ממתין לאישור',
+        driver_accepted:  `✅ ${name} קיבל את ההזמנה`,
+        out_for_delivery: `🚗 ${name} בדרך ללקוח`,
+        delivered:        `✅ נמסר ע"י ${name}`
+    };
+    return labels[status] || '';
 }
 
 async function sendToDriver(key) {
