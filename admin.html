@@ -495,6 +495,15 @@ body.kitchen-mode-on .order-card.status-new {
 /* ========================================
    End Delivery/Pickup Service Toggles
    ======================================== */
+
+/* Admin test-order buttons — bypass business hours (place-order.js itself never
+   checks the clock; only the customer-facing page does), so these work any time. */
+.test-order-btn {
+  padding: 0.5rem 0.8rem; background: transparent; border-radius: 8px;
+  font-family: 'Rubik', sans-serif; font-size: 0.85rem; font-weight: 700; cursor: pointer;
+  border: 1px solid #60a5fa; color: #60a5fa;
+}
+.test-order-btn:hover { background: #60a5fa; color: #000; }
 </style>
 </head>
 <body>
@@ -536,6 +545,9 @@ body.kitchen-mode-on .order-card.status-new {
             <!-- Delivery/Pickup service toggles (added to existing topbar; removable) -->
             <button class="service-toggle-btn on" id="delivery-toggle-btn" onclick="try{toggleDeliveryService()}catch(e){alert('שגיאה: '+(e&&e.message?e.message:e))}">🛵 משלוחים פעילים</button>
             <button class="service-toggle-btn on" id="pickup-toggle-btn" onclick="try{togglePickupService()}catch(e){alert('שגיאה: '+(e&&e.message?e.message:e))}">🚶 איסוף עצמי פעיל</button>
+            <!-- Test orders: create a real order regardless of business hours, for testing the KDS/delivery-bot flow (added; removable) -->
+            <button class="test-order-btn" onclick="try{createTestOrder('pickup')}catch(e){alert('שגיאה: '+(e&&e.message?e.message:e))}">🧪 בדיקה (איסוף)</button>
+            <button class="test-order-btn" onclick="try{createTestOrder('delivery')}catch(e){alert('שגיאה: '+(e&&e.message?e.message:e))}">🧪 בדיקה (משלוח)</button>
             <button class="logout-btn" style="background:#444;" onclick="window.location.href='/'">🏪 לאתר</button>
             <button class="logout-btn" style="background:#d21f24;" onclick="window.location.href='/?admin=1'">⚙️ הגדרות</button>
             <button class="logout-btn" style="background:#e8590c;" onclick="window.location.href='/marketing/admin/marketing-dashboard.html'">📣 שיווק</button>
@@ -1051,6 +1063,66 @@ function updateTimers() {
             if (timerEl) timerEl.textContent = timeAgo(knownOrders[key].ts || Date.now());
         }
     });
+}
+
+// ─── TEST ORDERS (bypass business hours — place-order.js never checks the
+// clock, only the customer-facing page does, so this works any time of day) ──
+const TEST_ORDER_PHONE   = '0500000000';
+const TEST_ORDER_ADDRESS = 'רחוב בדיקה 1, ערד';
+
+function flattenMenuItemsForTest(menu) {
+    const items = [];
+    if (!menu || typeof menu !== 'object') return items;
+    Object.values(menu).forEach(section => {
+        if (Array.isArray(section)) {
+            section.forEach(it => { if (it && it.name && Number.isFinite(Number(it.price))) items.push({ name: it.name, price: Number(it.price) }); });
+        } else if (section && typeof section === 'object') {
+            if (section.name && Number.isFinite(Number(section.price))) items.push({ name: section.name, price: Number(section.price) });
+            else Object.values(section).forEach(it => { if (it && it.name && Number.isFinite(Number(it.price))) items.push({ name: it.name, price: Number(it.price) }); });
+        }
+    });
+    return items;
+}
+
+function createTestOrder(type) {
+    const label = type === 'delivery' ? 'משלוח' : 'איסוף עצמי';
+    customConfirm(`ליצור הזמנת בדיקה (${label})? זו הזמנה אמיתית שתופיע בלוח — אפשר לבטל אותה כרגיל.`, () => doCreateTestOrder(type));
+}
+
+async function doCreateTestOrder(type) {
+    try {
+        const [menu, adminState] = await Promise.all([fbGet('menu'), fbGet('admin_state')]);
+        const soldOut = new Set((adminState && adminState.soldOut) || []);
+        const available = flattenMenuItemsForTest(menu).filter(it => !soldOut.has(it.name));
+        if (!available.length) { toast('❌ אין פריט זמין בתפריט ליצירת הזמנת בדיקה'); return; }
+
+        const pick = available[0];
+        const items = [{ name: pick.name }];
+        if (type === 'delivery') {
+            // Delivery orders have a minimum total — keep adding the same item until we clear it.
+            let total = pick.price;
+            while (total < 60 && items.length < 20) { items.push({ name: pick.name }); total += pick.price; }
+        }
+
+        const body = {
+            name: '🧪 בדיקת מנהל',
+            phone: TEST_ORDER_PHONE,
+            type: type === 'delivery' ? 'משלוח' : 'איסוף עצמי',
+            payment: 'cash',
+            items,
+            deliveryZone: 'arad'
+        };
+        if (type === 'delivery') body.address = TEST_ORDER_ADDRESS;
+
+        const res = await fetch('/.netlify/functions/place-order', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || !data.ok) { toast('❌ הזמנת בדיקה נכשלה: ' + (data.error || res.status)); return; }
+        toast('🧪 הזמנת בדיקה נוצרה — תופיע בלוח תוך רגע');
+    } catch (e) {
+        toast('❌ שגיאת רשת ביצירת הזמנת בדיקה');
+    }
 }
 
 // ─── DELIVERY BOT (Telegram courier) ───────────────────────────
