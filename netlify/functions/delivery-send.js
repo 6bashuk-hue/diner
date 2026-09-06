@@ -82,6 +82,10 @@ exports.handler = async (event) => {
     return json(200, { ok: true, alreadySent: true, delivery: order.delivery });
   }
 
+  // Chat id isn't a secret (it's just an addressing token); logging it here makes
+  // future "did the config actually reach the function" questions self-service.
+  console.log(`[delivery-send] using courier chat id ${TELEGRAM_COURIER_CHAT_ID}`);
+
   const text = buildDeliveryText(BUSINESS_META, order, orderId);
   const keyboard = buildKeyboard("sent", BUSINESS_ID, orderId, order);
 
