@@ -22,6 +22,12 @@
     Access-Control-Allow-Methods = "POST, GET, OPTIONS"
     Access-Control-Allow-Headers = "Content-Type, x-admin-token"
 
+# Telegram delivery bot — KDS calls this to send a delivery order to the courier.
+[[redirects]]
+  from = "/api/delivery/send"
+  to = "/.netlify/functions/delivery-send"
+  status = 200
+
 # Daily snapshot of all live data into backups/<date> (04:00 IL time)
 [functions."daily-backup"]
   schedule = "0 1 * * *"

@@ -12,6 +12,8 @@
 (function (root) {
   const SITE_CONFIG = {
     business: {
+      id: "diner",       // stable slug — used by the delivery bot (netlify/functions/delivery-send.js)
+      emoji: "🍔",        // used in the delivery/courier Telegram message
       name: "הדיינר",
       tagline: "הדיינר של ערד",
       type: "דיינר אמריקאי",
