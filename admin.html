@@ -184,6 +184,7 @@ body {
 .card-address { font-size: 0.82rem; color: #60a5fa; margin-bottom: 0.5rem; }
 .card-zone { font-size: 0.82rem; color: #60a5fa; font-weight: 700; margin-bottom: 0.2rem; }
 .card-courier-notes { font-size: 0.85rem; color: var(--warning); font-weight: 700; margin-bottom: 0.5rem; }
+.card-delivery-status { font-size: 0.82rem; color: #60a5fa; font-weight: 700; margin-bottom: 0.5rem; }
 
 .card-items { margin-bottom: 0.8rem; }
 .card-item {
@@ -235,6 +236,14 @@ body {
     touch-action: manipulation; transition: all 0.15s;
 }
 .btn-print:hover { background: #1a3a5a; color: #fff; }
+
+.btn-driver {
+    padding: 0.7rem 1rem; background: #1a2a4a; color: #60a5fa;
+    border: 1px solid #2a4a7a; border-radius: 10px;
+    font-family: 'Rubik', sans-serif; font-size: 0.9rem; font-weight: 700;
+    cursor: pointer; touch-action: manipulation; transition: all 0.15s;
+}
+.btn-driver:hover { background: #2a4a7a; color: #fff; }
 
 .autoprint-toggle {
     padding: 0.5rem 0.8rem; background: transparent; color: var(--muted);
@@ -631,6 +640,8 @@ let clockInterval = null;
 let pollInterval  = null;
 let timersInterval = null;
 let firstPoll     = true;   // distinguishes "first ever poll" from "currently 0 active orders"
+let adminToken    = '';     // kept in memory only (not stored) — sent as x-admin-token to delivery-send
+const BUSINESS_ID = SITE_CONFIG.business.id;
 let prepMode      = 'normal';
 
 // ─── UTILS ───────────────────────────────────────────────────
@@ -741,6 +752,7 @@ async function doLogin() {
             // Also sign into Firebase Auth (no-op until FBAuth is enabled + configured)
             // so kitchen writes carry the admin token once the DB rules are locked.
             if (window.FBAuth && window.FBAuth.enabled) { try { await window.FBAuth.signIn(pass); } catch {} }
+            adminToken = pass; // kept in memory for the delivery-send call below
             isLoggedIn = true;
             document.getElementById('login-screen').style.display = 'none';
             document.getElementById('app').style.display = 'flex';
@@ -762,6 +774,7 @@ async function doLogin() {
 
 function doLogout() {
     isLoggedIn = false;
+    adminToken = '';
     clearInterval(clockInterval);
     clearInterval(pollInterval);
     clearInterval(timersInterval);
@@ -951,7 +964,8 @@ function orderSignature(o) {
     // Cheap signature of fields that affect rendering — used to detect when
     // an existing card needs a re-render.
     return [o.status || '', o.couponCode || '', o.payment || '',
-            o.total || 0, (o.items || []).length].join('|');
+            o.total || 0, (o.items || []).length,
+            (o.delivery && o.delivery.status) || ''].join('|');
 }
 
 function buildCard(key, o, status) {
@@ -986,6 +1000,12 @@ function buildCard(key, o, status) {
                      </button>`;
     const cancelBtn = `<button class="btn-cancel" data-key="${key}" data-name="${safeName}" onclick="cancelOrder(this.dataset.key,this.dataset.name)" aria-label="ביטול הזמנה">✕</button>`;
     const printBtn  = `<button class="btn-print" data-key="${key}" onclick="printOrder(this.dataset.key)" aria-label="הדפסת הזמנה">🖨</button>`;
+    // Telegram delivery bot — only relevant for delivery orders.
+    const driverBtn = isDelivery
+        ? `<button class="btn-driver" data-key="${key}" onclick="sendToDriver(this.dataset.key)">
+               ${o.delivery && o.delivery.status ? '🔁 שוב לשליח' : '🚗 שלח לשליח'}
+           </button>`
+        : '';
 
     return `<div class="order-card status-${status}" data-key="${key}" data-sig="${orderSignature(o)}">
         <div class="card-header">
@@ -995,6 +1015,7 @@ function buildCard(key, o, status) {
                 ${isDelivery ? `<div class="card-address">📍 ${escapeHtml(o.address || (o.deliveryZone && o.deliveryZone.label) || '')}</div>` : ''}
                 ${isDelivery && o.deliveryZone && o.deliveryZone.label ? `<div class="card-zone">🗺️ ${escapeHtml(o.deliveryZone.label)}${o.deliveryZone.fee ? ` · 🛵 ${o.deliveryZone.fee} ₪` : ''}</div>` : ''}
                 ${o.courierNotes ? `<div class="card-courier-notes">🛵 הערה לשליח: ${escapeHtml(o.courierNotes)}</div>` : ''}
+                ${isDelivery && o.delivery && o.delivery.status ? `<div class="card-delivery-status">${deliveryStatusLabel(o.delivery.status)}</div>` : ''}
             </div>
             <div class="card-badges">
                 <span class="badge ${isDelivery ? 'badge-delivery' : 'badge-pickup'}">${escapeHtml(o.type || 'איסוף')}</span>
@@ -1013,6 +1034,7 @@ function buildCard(key, o, status) {
             </div>
             <div class="card-actions">
                 ${taboonBtn}
+                ${driverBtn}
                 ${doneBtn}
                 ${printBtn}
                 ${cancelBtn}
@@ -1029,6 +1051,47 @@ function updateTimers() {
             if (timerEl) timerEl.textContent = timeAgo(knownOrders[key].ts || Date.now());
         }
     });
+}
+
+// ─── DELIVERY BOT (Telegram courier) ───────────────────────────
+const DELIVERY_STATUS_LABELS = {
+    sent:             '🛵 נשלח לשליח — ממתין לאישור',
+    driver_accepted:  '✅ השליח קיבל את ההזמנה',
+    out_for_delivery: '🚗 השליח בדרך ללקוח',
+    delivered:        '✅ נמסר ללקוח'
+};
+function deliveryStatusLabel(status) {
+    return DELIVERY_STATUS_LABELS[status] || '';
+}
+
+async function sendToDriver(key) {
+    const order = knownOrders[key];
+    const resend = !!(order && order.delivery && order.delivery.status);
+    if (resend) {
+        customConfirm('ההזמנה כבר נשלחה לשליח. לשלוח שוב?', () => doSendToDriver(key, true));
+        return;
+    }
+    doSendToDriver(key, false);
+}
+
+async function doSendToDriver(key, resend) {
+    try {
+        const res = await fetch('/api/delivery/send', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'x-admin-token': adminToken },
+            body: JSON.stringify({ business_id: BUSINESS_ID, order_id: key, resend })
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || !data.ok) {
+            toast('❌ שליחה לשליח נכשלה: ' + (data.error || res.status));
+            return;
+        }
+        if (knownOrders[key]) knownOrders[key].delivery = data.delivery;
+        renderAllColumns(knownOrders);
+        toast(data.alreadySent ? 'ℹ️ ההזמנה כבר נשלחה לשליח' : '🚗 נשלח לשליח בהצלחה');
+    } catch (e) {
+        toast('❌ שגיאת רשת בשליחה לשליח');
+    }
 }
 
 // ─── ORDER ACTIONS ────────────────────────────────────────────
