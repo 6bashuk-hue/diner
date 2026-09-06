@@ -919,9 +919,8 @@
         <p id="closed-msg"></p>
         <p class="open-soon" id="closed-next"></p>
         <table class="hours-table">
-            <tr><td>ראשון–חמישי</td><td>18:00–24:00</td></tr>
-            <tr><td>שישי</td><td>18:00–23:00 (איסוף בלבד)</td></tr>
-            <tr><td>שבת</td><td>12:00–23:00</td></tr>
+            <tr><td>שני–חמישי</td><td>18:00–24:00</td></tr>
+            <tr><td>שבת</td><td>12:00–24:00</td></tr>
         </table>
     </div>
 
@@ -1094,7 +1093,7 @@
     📍 <span id="footer-city">התעשייה 6, ערד</span> &nbsp;|&nbsp; 📞 <a href="tel:+972504599409" id="footer-phone-link">050-459-9409</a><br>
     <br>
     <strong>שעות פתיחה:</strong><br>
-    <span id="footer-hours">ימים א׳-ה׳ 09:00–22:00</span>
+    <span id="footer-hours">ב׳–ה׳ 18:00–00:00 · שבת 12:00–00:00</span>
     <a class="track-link" onclick="openTrackModal()">📍 איפה ההזמנה שלי?</a>
     <a class="track-link" href="/group.html" style="display:block;margin-top:0.5rem;">🍔 מזמינים יחד? פתח הזמנה קבוצתית</a>
 </footer>
@@ -2691,16 +2690,16 @@ function getHoursStatus() {
         else if (t >= 24*60) nextMsg = "נפתח מחר ב-18:00";
         else                 nextMsg = "";
     } else if (d === 5) {
-        // שישי: איסוף 18+, ללא משלוח
-        pickupHours   = t >= 18*60;
+        // שישי: סגור לגמרי
+        pickupHours   = false;
         deliveryHours = false;
-        nextMsg = t < 18*60 ? "נפתח היום בשישי ב-18:00" : "";
+        nextMsg = "נפתח מחר בשבת ב-12:00";
     } else if (d === 6) {
-        // שבת: פתוח 12–24, משלוח 18–23
-        pickupHours   = t < 60 || t >= 12*60;
-        deliveryHours = t >= 18*60 && t < 23*60;
-        if (t >= 60 && t < 12*60) nextMsg = "נפתח היום בשבת ב-12:00";
-        else                      nextMsg = "";
+        // שבת: פתוח 12–24, משלוח 12–23
+        pickupHours   = t >= 12*60;
+        deliveryHours = t >= 12*60 && t < 23*60;
+        if (t < 12*60) nextMsg = "נפתח היום בשבת ב-12:00";
+        else           nextMsg = "";
     } else {
         // ראשון: סגור
         nextMsg = "נפתח ביום שני ב-18:00";
@@ -2734,7 +2733,7 @@ function applyHours() {
     const hasOpt = [...sel.options].some(o => o.value === "delivery");
 
     if (!effectiveDelivery) {
-        const why = !deliveryOn ? "המשלוחים מושבתים כרגע" : "משלוחים זמינים ב׳–ה׳ ובשבת בין 18:00–23:00";
+        const why = !deliveryOn ? "המשלוחים מושבתים כרגע" : "משלוחים זמינים ב׳–ה׳ בין 18:00–23:00, ובשבת בין 12:00–23:00";
         notice.textContent = "🛵 " + why; notice.style.display = "block";
         if (hasOpt) sel.remove([...sel.options].findIndex(o => o.value === "delivery"));
         document.getElementById("address-wrap").style.display = "none";
