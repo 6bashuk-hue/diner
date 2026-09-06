@@ -9,7 +9,7 @@
      in from site.config.js — edit every value below by hand. See SETUP.md for the full
      checklist. Keep the JSON-LD block valid JSON (no trailing commas). -->
 <title>הדיינר -- סמאש בורגרים בסגנון אמריקאי | ערד</title>
-<meta name="description" content="הדיינר של ערד -- סמאש בורגרים, קריספי צ'יקן וטבעות בצל בסגנון דיינר אמריקאי. הזמנה אונליין למשלוח או איסוף עצמי. התעשייה 6, ערד. ב׳-ה׳ 18:00-00:00, שבת 12:00-00:00.">
+<meta name="description" content="הדיינר של ערד -- סמאש בורגרים, קריספי צ'יקן וטבעות בצל בסגנון דיינר אמריקאי. הזמנה אונליין למשלוח או איסוף עצמי. התעשייה 6, ערד. ב׳-ה׳ 18:00-23:30, שבת 12:00-23:30.">
 <meta name="keywords" content="המבורגר ערד, סמאש בורגר, דיינר אמריקאי, משלוחים ערד, הדיינר, קריספי צ'יקן ערד">
 <meta name="robots" content="index, follow">
 <meta name="author" content="הדיינר">
@@ -39,7 +39,7 @@
 
 <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@300;400;500;700;900&family=Secular+One&family=Alfa+Slab+One&display=swap" rel="stylesheet">
 <script type="application/ld+json">
-{"@context":"https://schema.org","@type":"Restaurant","name":"הדיינר","url":"https://REPLACE-WITH-YOUR-DOMAIN.netlify.app","telephone":"+972504599409","image":"https://REPLACE-WITH-YOUR-DOMAIN.netlify.app/icon-512.png","servesCuisine":["American","Burgers"],"priceRange":"$$","address":{"@type":"PostalAddress","streetAddress":"התעשייה 6","addressLocality":"ערד","addressRegion":"","addressCountry":"IL"},"openingHours":["Mo-Th 18:00-00:00","Sa 12:00-00:00"],"hasMap":"https://maps.google.com/?q=ערד+התעשייה+6+הדיינר"}
+{"@context":"https://schema.org","@type":"Restaurant","name":"הדיינר","url":"https://REPLACE-WITH-YOUR-DOMAIN.netlify.app","telephone":"+972504599409","image":"https://REPLACE-WITH-YOUR-DOMAIN.netlify.app/icon-512.png","servesCuisine":["American","Burgers"],"priceRange":"$$","address":{"@type":"PostalAddress","streetAddress":"התעשייה 6","addressLocality":"ערד","addressRegion":"","addressCountry":"IL"},"openingHours":["Mo-Th 18:00-23:30","Sa 12:00-23:30"],"hasMap":"https://maps.google.com/?q=ערד+התעשייה+6+הדיינר"}
 </script>
 <!-- SEO:END -->
 <style>
@@ -919,8 +919,8 @@
         <p id="closed-msg"></p>
         <p class="open-soon" id="closed-next"></p>
         <table class="hours-table">
-            <tr><td>שני–חמישי</td><td>18:00–24:00</td></tr>
-            <tr><td>שבת</td><td>12:00–24:00</td></tr>
+            <tr><td>שני–חמישי</td><td>18:00–23:30</td></tr>
+            <tr><td>שבת</td><td>12:00–23:30</td></tr>
         </table>
     </div>
 
@@ -1093,7 +1093,7 @@
     📍 <span id="footer-city">התעשייה 6, ערד</span> &nbsp;|&nbsp; 📞 <a href="tel:+972504599409" id="footer-phone-link">050-459-9409</a><br>
     <br>
     <strong>שעות פתיחה:</strong><br>
-    <span id="footer-hours">ב׳–ה׳ 18:00–00:00 · שבת 12:00–00:00</span>
+    <span id="footer-hours">ב׳–ה׳ 18:00–23:30 · שבת 12:00–23:30</span>
     <a class="track-link" onclick="openTrackModal()">📍 איפה ההזמנה שלי?</a>
     <a class="track-link" href="/group.html" style="display:block;margin-top:0.5rem;">🍔 מזמינים יחד? פתח הזמנה קבוצתית</a>
 </footer>
@@ -2683,20 +2683,23 @@ function getHoursStatus() {
     let pickupHours = false, deliveryHours = false, nextMsg = "";
 
     if (d >= 1 && d <= 4) {
-        // ב–ה: פתוח 18–24 (איסוף ומשלוח יחד)
-        pickupHours   = t >= 18*60 && t < 24*60;
+        // ב–ה: פתוח 18:00–23:30 (איסוף ומשלוח יחד)
+        pickupHours   = t >= 18*60 && t < 23*60+30;
         deliveryHours = pickupHours;
-        nextMsg = t < 18*60 ? "נפתח היום ב-18:00" : "";
+        if (t < 18*60)          nextMsg = "נפתח היום ב-18:00";
+        else if (t >= 23*60+30) nextMsg = "נפתח מחר ב-18:00";
+        else                    nextMsg = "";
     } else if (d === 5) {
         // שישי: סגור לגמרי
         pickupHours   = false;
         deliveryHours = false;
         nextMsg = "נפתח מחר בשבת ב-12:00";
     } else if (d === 6) {
-        // שבת: פתוח 12–24 (איסוף ומשלוח יחד)
-        pickupHours   = t >= 12*60;
+        // שבת: פתוח 12:00–23:30 (איסוף ומשלוח יחד)
+        pickupHours   = t >= 12*60 && t < 23*60+30;
         deliveryHours = pickupHours;
-        nextMsg = t < 12*60 ? "נפתח היום בשבת ב-12:00" : "";
+        if (t < 12*60) nextMsg = "נפתח היום בשבת ב-12:00";
+        else           nextMsg = "";
     } else {
         // ראשון: סגור
         nextMsg = "נפתח ביום שני ב-18:00";
@@ -2730,7 +2733,7 @@ function applyHours() {
     const hasOpt = [...sel.options].some(o => o.value === "delivery");
 
     if (!effectiveDelivery) {
-        const why = !deliveryOn ? "המשלוחים מושבתים כרגע" : "משלוחים זמינים ב׳–ה׳ בין 18:00–24:00, ובשבת בין 12:00–24:00";
+        const why = !deliveryOn ? "המשלוחים מושבתים כרגע" : "משלוחים זמינים ב׳–ה׳ בין 18:00–23:30, ובשבת בין 12:00–23:30";
         notice.textContent = "🛵 " + why; notice.style.display = "block";
         if (hasOpt) sel.remove([...sel.options].findIndex(o => o.value === "delivery"));
         document.getElementById("address-wrap").style.display = "none";
