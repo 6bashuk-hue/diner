@@ -2683,23 +2683,20 @@ function getHoursStatus() {
     let pickupHours = false, deliveryHours = false, nextMsg = "";
 
     if (d >= 1 && d <= 4) {
-        // ב–ה: פתוח 18–24
+        // ב–ה: פתוח 18–24 (איסוף ומשלוח יחד)
         pickupHours   = t >= 18*60 && t < 24*60;
-        deliveryHours = t >= 18*60 && t < 23*60;
-        if (t < 18*60)       nextMsg = "נפתח היום ב-18:00";
-        else if (t >= 24*60) nextMsg = "נפתח מחר ב-18:00";
-        else                 nextMsg = "";
+        deliveryHours = pickupHours;
+        nextMsg = t < 18*60 ? "נפתח היום ב-18:00" : "";
     } else if (d === 5) {
         // שישי: סגור לגמרי
         pickupHours   = false;
         deliveryHours = false;
         nextMsg = "נפתח מחר בשבת ב-12:00";
     } else if (d === 6) {
-        // שבת: פתוח 12–24, משלוח 12–23
+        // שבת: פתוח 12–24 (איסוף ומשלוח יחד)
         pickupHours   = t >= 12*60;
-        deliveryHours = t >= 12*60 && t < 23*60;
-        if (t < 12*60) nextMsg = "נפתח היום בשבת ב-12:00";
-        else           nextMsg = "";
+        deliveryHours = pickupHours;
+        nextMsg = t < 12*60 ? "נפתח היום בשבת ב-12:00" : "";
     } else {
         // ראשון: סגור
         nextMsg = "נפתח ביום שני ב-18:00";
@@ -2733,7 +2730,7 @@ function applyHours() {
     const hasOpt = [...sel.options].some(o => o.value === "delivery");
 
     if (!effectiveDelivery) {
-        const why = !deliveryOn ? "המשלוחים מושבתים כרגע" : "משלוחים זמינים ב׳–ה׳ בין 18:00–23:00, ובשבת בין 12:00–23:00";
+        const why = !deliveryOn ? "המשלוחים מושבתים כרגע" : "משלוחים זמינים ב׳–ה׳ בין 18:00–24:00, ובשבת בין 12:00–24:00";
         notice.textContent = "🛵 " + why; notice.style.display = "block";
         if (hasOpt) sel.remove([...sel.options].findIndex(o => o.value === "delivery"));
         document.getElementById("address-wrap").style.display = "none";

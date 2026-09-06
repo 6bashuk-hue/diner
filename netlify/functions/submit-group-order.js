@@ -24,14 +24,13 @@ function getILHoursStatus() {
   let pickup = false, delivery = false, msg = "";
   if (d >= 1 && d <= 4) {
     pickup = t >= 18 * 60 && t < 24 * 60;
-    delivery = t >= 18 * 60 && t < 23 * 60;
+    delivery = pickup;
     if (t < 18 * 60) msg = "נפתח היום ב-18:00";
-    else if (t >= 24 * 60) msg = "נפתח מחר ב-18:00";
   } else if (d === 5) {
     msg = "נפתח מחר בשבת ב-12:00";
   } else if (d === 6) {
     pickup = t >= 12 * 60;
-    delivery = t >= 12 * 60 && t < 23 * 60;
+    delivery = pickup;
     if (t < 12 * 60) msg = "נפתח היום בשבת ב-12:00";
   } else {
     msg = "נפתח ביום שני ב-18:00";
