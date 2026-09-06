@@ -16,13 +16,24 @@ function orderAddress(order) {
   return String((order && (order.address || (order.deliveryZone && order.deliveryZone.label) || order.destination)) || "").trim();
 }
 
+// Telegram inline-button URLs only accept http(s):// and tg:// — a tel: link gets
+// rejected outright ("Bad Request: ... is invalid: Wrong port number specified in
+// the URL"), so there's no button for calling. Instead the phone number is put in
+// the message text in +<countrycode> form, which Telegram's own auto-linkification
+// turns into a tap-to-call link on mobile clients without needing a button at all.
+function formatPhoneIntl(phone) {
+  const digits = String(phone || "").replace(/\D/g, "");
+  if (!digits) return "";
+  return digits.startsWith("0") ? "+972" + digits.slice(1) : "+" + digits;
+}
+
 function buildDeliveryText(businessMeta, order, orderKey, statusNote) {
   const lines = [
     `${businessMeta.emoji} ${businessMeta.name}`,
     `🚗 משלוח #${orderDisplayNumber(orderKey)}`,
     `📍 ${orderAddress(order) || "לא צוינה כתובת"}`,
     `💰 ${order.total || 0} ₪`,
-    `📞 ${order.phone || ""}`
+    `📞 ${formatPhoneIntl(order.phone) || order.phone || ""}`
   ];
   if (statusNote) lines.push("", statusNote);
   return lines.join("\n");
@@ -33,10 +44,8 @@ function buildDeliveryText(businessMeta, order, orderKey, statusNote) {
 // progress instead of the buttons disappearing.
 function buildKeyboard(status, businessId, orderKey, order) {
   const address = orderAddress(order);
-  const phone = String((order && order.phone) || "").replace(/\D/g, "");
   const navRow = [
-    { text: "🗺️ ניווט", url: "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(address) },
-    { text: "📞 התקשר", url: "tel:" + phone }
+    { text: "🗺️ ניווט", url: "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(address) }
   ];
   const rows = [navRow];
 
