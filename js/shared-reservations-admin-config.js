@@ -14,5 +14,5 @@
 // shipped in client JS rather than a per-user credential, so treat it like
 // any other value that must never appear in a public page's source.
 window.SHARED_RESERVATIONS_ADMIN_CONFIG = {
-  adminKey: "REPLACE_WITH_ADMIN_API_KEY",
+  adminKey: "vNn5uDUVAUfBUB9g91jtENVMYiY-FEm6",
 };
