@@ -6,14 +6,38 @@
 (function () {
   "use strict";
 
-  // Front-end-only display range for the time-slot buttons. Not enforced by
-  // the backend (createReservation has no notion of "operating hours" — see
-  // API.md) — this is purely which buttons this page offers to tap. Adjust
-  // here if hours change; no backend/API change needed.
-  const TIME_SLOTS = [];
-  for (let h = 12; h <= 22; h++) {
-    TIME_SLOTS.push(String(h).padStart(2, "0") + ":00");
-    if (h < 23) TIME_SLOTS.push(String(h).padStart(2, "0") + ":30");
+  // Front-end-only opening hours driving which time-slot buttons are offered.
+  // Not enforced by the backend (createReservation has no notion of
+  // "operating hours" — see API.md) — this is purely which buttons this page
+  // offers to tap. Update here if hours change; no backend/API change needed.
+  const HOURS = {
+    sunday: null,                                // closed
+    weekday: { start: "18:00", end: "23:15" },   // Monday–Friday
+    saturday: { start: "12:00", end: "23:15" },
+  };
+
+  function toMinutes(hhmm) {
+    const [h, m] = hhmm.split(":").map(Number);
+    return h * 60 + m;
+  }
+  function toHHMM(mins) {
+    return String(Math.floor(mins / 60)).padStart(2, "0") + ":" + String(mins % 60).padStart(2, "0");
+  }
+
+  // Half-hour grid from opening to closing, plus one final "last seating" slot
+  // exactly at closing time if it doesn't already fall on that grid (e.g.
+  // closing at 23:15 adds a slot after the 23:00 one, not instead of it).
+  function getTimeSlotsForDate(dateStr) {
+    const day = new Date(dateStr + "T00:00:00").getDay(); // 0=Sunday ... 6=Saturday
+    const range = day === 0 ? HOURS.sunday : day === 6 ? HOURS.saturday : HOURS.weekday;
+    if (!range) return [];
+    const start = toMinutes(range.start);
+    const end = toMinutes(range.end);
+    const slots = [];
+    for (let m = start; m <= end; m += 30) slots.push(toHHMM(m));
+    const endStr = toHHMM(end);
+    if (slots[slots.length - 1] !== endStr) slots.push(endStr);
+    return slots;
   }
 
   let settings = { minPartySize: 1, maxPartySize: 12 };
@@ -64,6 +88,30 @@
     else renderMineTab();
   }
 
+  // Rebuilds the time-slot buttons for state.date and resets any previously
+  // selected time — the slots (and whether the day is open at all) depend on
+  // the date, so a stale selection from a different day must not survive.
+  function renderTimeGrid() {
+    const grid = document.getElementById("rsv-time-grid");
+    if (!grid) return;
+    grid.innerHTML = "";
+    state.time = "";
+    const slots = getTimeSlotsForDate(state.date);
+    if (slots.length === 0) {
+      grid.appendChild(el(`<div class="rsv-closed-msg">המקום סגור ביום זה — נא לבחור תאריך אחר</div>`));
+      return;
+    }
+    slots.forEach((t) => {
+      const btn = el(`<button type="button" class="rsv-time-btn">${t}</button>`);
+      btn.addEventListener("click", () => {
+        state.time = t;
+        grid.querySelectorAll(".rsv-time-btn").forEach((b) => b.classList.remove("selected"));
+        btn.classList.add("selected");
+      });
+      grid.appendChild(btn);
+    });
+  }
+
   function renderBookTab() {
     const root = document.getElementById("reservation-app");
     root.innerHTML = "";
@@ -96,18 +144,11 @@
     const dateInput = document.getElementById("rsv-date");
     dateInput.min = todayStr();
     dateInput.value = state.date;
-    dateInput.addEventListener("change", () => { state.date = dateInput.value; });
-
-    const grid = document.getElementById("rsv-time-grid");
-    TIME_SLOTS.forEach((t) => {
-      const btn = el(`<button type="button" class="rsv-time-btn">${t}</button>`);
-      btn.addEventListener("click", () => {
-        state.time = t;
-        grid.querySelectorAll(".rsv-time-btn").forEach((b) => b.classList.remove("selected"));
-        btn.classList.add("selected");
-      });
-      grid.appendChild(btn);
+    dateInput.addEventListener("change", () => {
+      state.date = dateInput.value;
+      renderTimeGrid();
     });
+    renderTimeGrid();
 
     const partyVal = document.getElementById("rsv-party-val");
     partyVal.textContent = state.partySize;
