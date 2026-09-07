@@ -700,6 +700,7 @@
     <button class="admin-tab-btn"        data-tab="promos" onclick="switchAdminTab('promos')">🎉 מבצעים</button>
     <button class="admin-tab-btn"        data-tab="menu" onclick="switchAdminTab('menu')">🍔 תפריט</button>
     <button class="admin-tab-btn"        data-tab="reports" onclick="switchAdminTab('reports')">📊 דוחות</button>
+    <button class="admin-tab-btn"        data-tab="tables" onclick="switchAdminTab('tables')">🪑 שולחנות</button>
 </div>
 
 <!-- ─── TAB: ניהול יומי ─── -->
@@ -843,6 +844,11 @@
     </div>
 </div>
 
+<!-- ─── TAB: שולחנות (shared-reservations — see js/reservations-admin.js) ─── -->
+<div class="admin-tab" data-tab="tables">
+    <div id="tables-admin-root"></div>
+</div>
+
 </div>
 
 <!-- SITE -->
@@ -861,6 +867,12 @@
 
 <div class="busy-banner" id="busy-banner">🔥 אנחנו עמוסים כרגע -- זמן ההמתנה עשוי להיות ארוך יותר</div>
 <div class="prep-banner" id="prep-banner"></div>
+
+<!-- Shared table-reservation link (added; does not touch existing header markup/logic) -->
+<div style="text-align:center; padding:0.6rem 1rem;">
+    <a href="reservation.html" style="display:inline-block; padding:0.85rem 1.8rem; border-radius:999px; background:var(--primary); color:var(--white); text-decoration:none; font-weight:900; font-size:1.05rem; box-shadow:0 2px 8px rgba(0,0,0,0.18);">🪑 הזמנת שולחן</a>
+</div>
+
 <div class="promo-banner" id="promo-banner"></div>
 
 <!-- UPSELL MODAL — shown right before submitting if cart has no dessert/drink -->
@@ -1106,6 +1118,10 @@
 
 <script src="site.config.js"></script>
 <script src="js/firebase-auth.js"></script>
+<!-- Shared table-reservation system (separate Firebase project) — public config/client only; the admin key loads on demand, see reservations-admin.js -->
+<script src="js/shared-reservations-config.js"></script>
+<script src="js/shared-reservations-client.js"></script>
+<script src="js/reservations-admin.js"></script>
 <script>
 // ============================================================
 // CONFIG -- values come from site.config.js (edit that file, not this one)
@@ -3592,6 +3608,7 @@ function switchAdminTab(tab) {
     if (tab === "promos")  { loadPromosList(); }
     if (tab === "menu")    { renderMenuAdmin(); renderExtrasAdmin(); renderSpecialsAdmin(); }
     if (tab === "reports") { loadWeeklyReports(); }
+    if (tab === "tables")  { if (window.ReservationsAdmin) ReservationsAdmin.renderTablesTab(); }
     window.scrollTo(0, 0);
 }
 function adminLogout() {

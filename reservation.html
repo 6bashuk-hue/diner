@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>הזמנת שולחן — 6 בשוק · אדלה · הדיינר</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;700;900&display=swap" rel="stylesheet">
+<style>
+    /* Brand colors for THIS site only — copied from index.html's :root.
+       Everything below this block is identical across all three brand sites;
+       only these variable values (and the config's `source`) differ. */
+    :root {
+        --primary: #d21f24;
+        --primary-dark: #a31419;
+        --bg: #f7f1e7;
+        --dark: #1f1a15;
+        --white: #ffffff;
+        --success: #25D366;
+        --danger: #e74c3c;
+        --border: #e3d8c3;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: 'Heebo', sans-serif; background: var(--bg); color: var(--dark); direction: rtl; }
+    .rsv-header { text-align: center; padding: 1.3rem 1rem 0.7rem; }
+    .rsv-logos { display: flex; justify-content: center; align-items: center; gap: 1rem; flex-wrap: wrap; margin-bottom: 0.7rem; }
+    .rsv-logo { width: 64px; height: 64px; object-fit: contain; border-radius: 12px; background: var(--white); padding: 6px; box-shadow: 0 1px 4px rgba(0,0,0,0.15); }
+    .rsv-title { font-size: 1.2rem; font-weight: 900; margin: 0 0 0.2rem; }
+    .rsv-sub { font-size: 0.85rem; color: var(--primary-dark); margin: 0; max-width: 420px; margin-inline: auto; }
+    .rsv-wrap { max-width: 480px; margin: 0 auto; padding: 0.5rem 1rem 3rem; }
+    .rsv-card { background: var(--white); border-radius: 16px; padding: 1.1rem; margin-bottom: 1rem; box-shadow: 0 1px 6px rgba(0,0,0,0.08); }
+    .rsv-tabs { display: flex; gap: 0.5rem; margin-bottom: 1rem; }
+    .rsv-tab-btn { flex: 1; padding: 0.75rem 0.4rem; border-radius: 10px; border: 2px solid var(--border); background: var(--white); font-weight: 700; font-size: 0.92rem; cursor: pointer; color: var(--dark); font-family: inherit; }
+    .rsv-tab-btn.active { background: var(--primary); border-color: var(--primary); color: var(--white); }
+    label.rsv-label { display: block; font-weight: 700; font-size: 0.9rem; margin: 0.9rem 0 0.4rem; }
+    .rsv-input { width: 100%; padding: 0.85rem; border: 2px solid var(--border); border-radius: 10px; font-size: 1rem; font-family: inherit; background: var(--white); color: var(--dark); }
+    .rsv-input:focus { outline: none; border-color: var(--primary); }
+    .rsv-time-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; }
+    .rsv-time-btn { padding: 0.9rem 0.4rem; border-radius: 10px; border: 2px solid var(--border); background: var(--white); font-size: 1rem; font-weight: 700; cursor: pointer; color: var(--dark); min-height: 48px; font-family: inherit; }
+    .rsv-time-btn.selected { background: var(--primary); border-color: var(--primary); color: var(--white); }
+    .rsv-closed-msg { grid-column: 1 / -1; text-align: center; font-weight: 700; color: var(--danger); background: #fdecea; border-radius: 10px; padding: 0.9rem; }
+    .rsv-party-row { display: flex; align-items: center; justify-content: center; gap: 1.2rem; }
+    .rsv-party-btn { width: 52px; height: 52px; border-radius: 50%; border: 2px solid var(--primary); background: var(--white); color: var(--primary); font-size: 1.5rem; font-weight: 900; cursor: pointer; }
+    .rsv-party-val { font-size: 1.6rem; font-weight: 900; min-width: 2.5rem; text-align: center; }
+    .rsv-submit { width: 100%; padding: 1rem; border: none; border-radius: 12px; background: var(--primary); color: var(--white); font-size: 1.05rem; font-weight: 900; cursor: pointer; margin-top: 1.2rem; min-height: 52px; font-family: inherit; }
+    .rsv-submit:disabled { opacity: 0.6; cursor: default; }
+    .rsv-msg { margin-top: 0.9rem; padding: 0.8rem; border-radius: 10px; font-size: 0.92rem; font-weight: 700; text-align: center; }
+    .rsv-msg.error { background: #fdecea; color: var(--danger); }
+    .rsv-msg.success { background: #eafaf0; color: #1a7a45; }
+    .rsv-spinner { display: inline-block; width: 18px; height: 18px; border: 3px solid rgba(255,255,255,0.5); border-top-color: #fff; border-radius: 50%; animation: rsv-spin 0.7s linear infinite; vertical-align: middle; margin-inline-end: 0.4rem; }
+    @keyframes rsv-spin { to { transform: rotate(360deg); } }
+    .rsv-my-list-item { border: 1px solid var(--border); border-radius: 10px; padding: 0.8rem; margin-bottom: 0.7rem; }
+    .rsv-my-list-item .top { display: flex; justify-content: space-between; font-weight: 700; }
+    .rsv-cancel-btn { width: 100%; margin-top: 0.6rem; padding: 0.6rem; border-radius: 8px; border: 2px solid var(--danger); background: var(--white); color: var(--danger); font-weight: 700; cursor: pointer; font-family: inherit; }
+    .rsv-back-link { display: block; text-align: center; padding: 0.6rem; font-size: 0.85rem; color: var(--primary-dark); text-decoration: none; }
+    @media (max-width: 380px) { .rsv-time-grid { grid-template-columns: repeat(2, 1fr); } .rsv-logo { width: 52px; height: 52px; } }
+</style>
+</head>
+<body>
+
+<div class="rsv-header">
+    <div class="rsv-logos">
+        <img src="logo-6bashuk.png" alt="לוגו 6 בשוק" class="rsv-logo">
+        <img src="logo-adela.png" alt="לוגו אדלה בשוק" class="rsv-logo">
+        <img src="logo-hadiner.png" alt="לוגו הדיינר" class="rsv-logo">
+    </div>
+    <div class="rsv-title">הזמנת שולחן</div>
+    <p class="rsv-sub">שולחן משותף לשלושת המסעדות — 6 בשוק, אדלה והדיינר — אותו מרכז הזמנות לכולן</p>
+</div>
+
+<div class="rsv-wrap">
+    <div class="rsv-tabs">
+        <button type="button" class="rsv-tab-btn active" id="rsv-tab-book" onclick="ReservationWidget.showTab('book')">📅 הזמנה חדשה</button>
+        <button type="button" class="rsv-tab-btn" id="rsv-tab-mine" onclick="ReservationWidget.showTab('mine')">🔍 ההזמנות שלי</button>
+    </div>
+    <div id="reservation-app"></div>
+</div>
+
+<a href="index.html" class="rsv-back-link">← חזרה לאתר</a>
+
+<script src="js/shared-reservations-config.js"></script>
+<script src="js/shared-reservations-client.js"></script>
+<script src="js/reservation-widget.js"></script>
+<script>ReservationWidget.init();</script>
+</body>
+</html>
