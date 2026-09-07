@@ -568,6 +568,12 @@ body.kitchen-mode-on .order-card.status-new {
         <div class="stat"><div class="stat-num" id="s-pickup">0</div><div class="stat-lbl">איסוף</div></div>
     </div>
 
+    <!-- Shared table-reservations: today's reserved tables reminder (display-only; added, removable; see js/reservations-admin.js) -->
+    <div style="background:#1e1e1e; border:1px solid #333; border-radius:10px; padding:0.7rem 1rem; margin-bottom:1rem;">
+        <div style="font-weight:bold; color:#ffd873; margin-bottom:0.4rem;">🪑 שולחנות שמורים היום</div>
+        <div id="reservations-daily-panel" style="color:#888;">טוען...</div>
+    </div>
+
     <!-- COLUMNS -->
     <div class="columns-wrap">
         <!-- NEW ORDERS -->
@@ -620,6 +626,10 @@ body.kitchen-mode-on .order-card.status-new {
 
 <script src="site.config.js"></script>
 <script src="js/firebase-auth.js"></script>
+<!-- Shared table-reservation system (separate Firebase project) — powers the "שולחנות שמורים היום" panel above. Display-only here; admin key loads on demand. -->
+<script src="js/shared-reservations-config.js"></script>
+<script src="js/shared-reservations-client.js"></script>
+<script src="js/reservations-admin.js"></script>
 <script>
 // ─── CONFIG -- values come from site.config.js (edit that file, not this one) ──
 const FB_URL     = SITE_CONFIG.firebase.dbUrl;
@@ -774,6 +784,7 @@ async function doLogin() {
             startRealtime();
             loadTodayStats();
             loadPrepMode();
+            if (window.ReservationsAdmin) ReservationsAdmin.initDailyPanel();
         } else {
             document.getElementById('lerr').style.display = 'block';
         }
